@@ -203,10 +203,16 @@ Tokens of Cyrillic letters go through Snowball Russian, tokens of Latin
 letters go through Snowball English (Porter2), and other tokens are left
 as they are. The stemmers are written by hand. The official Snowball
 vocabularies are the test fixtures: about 92,000 word/stem pairs, BSD-3
-licensed, pinned to the same upstream commit as the algorithm.
+licensed. The algorithm still changes upstream (`inter` was added in
+2025-10), so the hand-written stemmers and the fixtures are pinned to the same
+point in time:
 
-What it costs: the analyzer version becomes part of the index format. A
-different analyzer means a full rebuild.
+* [`snowballstem/snowball`](https://github.com/snowballstem/snowball) at `14a4f24e4cf64f1003d1205edc0713b8111a18a8` (2026-09-24), the `russian.sbl` and `english.sbl` algorithms;
+* [`snowballstem/snowball-data`](https://github.com/snowballstem/snowball-data) at `a0ec0d0a2839ec885878868de20fcb63209d92b0` (2026-06-09), `{russian,english}/voc.txt` and `output.txt`.
+
+What it costs: changing the analyzer changes every term. The log stores raw
+text and is re-analysed on every start, so a new analyzer takes effect with
+the next restart, with no migration. Search results change with it.
 
 # BM25 from the start
 
