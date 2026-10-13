@@ -301,6 +301,12 @@ final class Corpus
         $this->log->close();
     }
 
+    /** What opening the log found: clean, a torn tail cut off, damage moved aside, or no log. */
+    public function recovery(): LogScan
+    {
+        return $this->log->recovery();
+    }
+
     private function isStale(string $id, int $sourceVersion): bool
     {
         return $sourceVersion <= ($this->documents[$id][0] ?? 0)

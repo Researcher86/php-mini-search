@@ -24,9 +24,14 @@ final class TemporaryDirectory
 
     public function remove(): void
     {
-        foreach (glob($this->root . '/{,.}[!.]*', GLOB_BRACE) ?: [] as $file) {
-            unlink($file);
+        self::removeTree($this->root);
+    }
+
+    private static function removeTree(string $directory): void
+    {
+        foreach (glob($directory . '/{,.}[!.]*', GLOB_BRACE) ?: [] as $entry) {
+            is_dir($entry) && !is_link($entry) ? self::removeTree($entry) : unlink($entry);
         }
-        rmdir($this->root);
+        rmdir($directory);
     }
 }

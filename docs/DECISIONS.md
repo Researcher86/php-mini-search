@@ -253,7 +253,7 @@ generation, field lengths and terms. There is no listing endpoint.
 The only client is the platform, and it sends `Content-Length`.
 
 * Any `Transfer-Encoding` is rejected with `501`;
-* a body without a length gets `411`;
+* no `Content-Length` means an empty body, as RFC 9112 says. The first plan answered `POST`/`PUT` without one with `411`, but `POST /reindex` has no body, and `curl -X POST` and many client libraries send such a request with no length at all. That plan was dropped when the first live run of the service hit it. A `PUT` with no body now fails JSON validation (`400 invalid_json`) instead;
 * conflicting, duplicated or non-canonical lengths get `400`, and the connection is closed, because the end of the request can no longer be known.
 
 `Expect: 100-continue` is supported, so an oversized body is refused before

@@ -182,7 +182,6 @@ the `X-Request-Id` header: it is taken from the client or generated.
 | `404` | `document_not_found` | diagnostic `GET` of an id never seen |
 | `405` | `method_not_allowed` | known path, wrong method (with `Allow`) |
 | `409` | `generation_not_open` | `complete` for a generation that is not open |
-| `411` | `length_required` | a body without `Content-Length` |
 | `413` | `payload_too_large` | body over 256 KB |
 | `415` | `unsupported_media_type` | `Content-Type` is not `application/json` |
 | `422` | `validation_failed` | a field breaks its rule; `details` names the `field` and the `rule` |

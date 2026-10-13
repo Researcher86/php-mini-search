@@ -44,6 +44,8 @@ final class Server
     /** @var Closure(): float */
     private readonly Closure $clock;
 
+    private bool $draining = false;
+
     /**
      * @param (Closure(): float)|null $clock seconds, monotonic; defaults to hrtime()
      */
@@ -128,6 +130,29 @@ final class Server
         return count($this->connections);
     }
 
+    /**
+     * Starts a graceful shutdown: stop accepting, close every connection
+     * with nothing in flight, and let the ones in the middle of a request
+     * finish it — their response carries `Connection: close`. The caller
+     * keeps calling tick() until connectionCount() is 0 or its deadline
+     * passes.
+     */
+    public function drain(): void
+    {
+        $this->draining = true;
+
+        if ($this->listener !== null) {
+            fclose($this->listener);
+            $this->listener = null;
+        }
+
+        foreach ($this->connections as $connection) {
+            if ($connection->isIdle() && !$connection->parser->hasBufferedRequest()) {
+                $this->drop($connection);
+            }
+        }
+    }
+
     public function close(): void
     {
         foreach ($this->connections as $connection) {
@@ -191,6 +216,9 @@ final class Server
 
         $connection->idleSince = $now;
         $this->process($connection, $now);
+        if ($this->draining && $connection->isIdle() && isset($this->connections[(int) $connection->socket])) {
+            $this->drop($connection);
+        }
     }
 
     /**
@@ -245,6 +273,7 @@ final class Server
 
     private function respond(Connection $connection, Response $response, bool $keepAlive, bool $withBody, bool $http10, float $now): void
     {
+        $keepAlive = $keepAlive && !$this->draining;
         $connection->closeAfterWrite = !$keepAlive;
         $this->send($connection, $response->serialize($keepAlive, $withBody, $http10), $now);
     }

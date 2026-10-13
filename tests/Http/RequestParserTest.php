@@ -53,7 +53,7 @@ final class RequestParserTest extends TestCase
         yield 'two different Content-Lengths' => ["POST /a HTTP/1.1\r\nHost: x\r\nContent-Length: 2\r\nContent-Length: 3\r\n\r\nhi!", ['400 malformed_request']];
         yield 'a signed Content-Length' => ["POST /a HTTP/1.1\r\nHost: x\r\nContent-Length: +2\r\n\r\nhi", ['400 malformed_request']];
         yield 'a list as Content-Length' => ["POST /a HTTP/1.1\r\nHost: x\r\nContent-Length: 2, 2\r\n\r\nhi", ['400 malformed_request']];
-        yield 'POST without Content-Length' => ["POST /a HTTP/1.1\r\nHost: x\r\n\r\n", ['411 length_required']];
+        yield 'POST without Content-Length has an empty body' => ["POST /a HTTP/1.1\r\nHost: x\r\n\r\n", [$ok('POST', '/a')]];
         yield 'a body over the limit' => ["PUT /a HTTP/1.1\r\nHost: x\r\nContent-Length: 1001\r\n\r\n", ['413 payload_too_large']];
         yield 'a head over the limit' => ["GET /a HTTP/1.1\r\nHost: x\r\nX: " . str_repeat('a', 600) . "\r\n\r\n", ['431 headers_too_large']];
         yield 'an endless head' => ['GET /' . str_repeat('a', 700), ['431 headers_too_large']];

@@ -20,8 +20,10 @@ namespace PhpMiniSearch\Http;
  *  - lines end in CRLF; a bare CR or LF, a NUL, or a folded header line is 400;
  *  - HTTP/1.0 and HTTP/1.1 only, origin-form targets only, Host required in 1.1;
  *  - the body is framed by Content-Length only. Any Transfer-Encoding is
- *    501; a repeated or non-numeric Content-Length is 400; POST or PUT
- *    without one is 411 — ambiguous framing is how request smuggling starts;
+ *    501, and a repeated or non-numeric Content-Length is 400 — ambiguous
+ *    framing is how request smuggling starts. No Content-Length means an
+ *    empty body (RFC 9112), which is what `curl -X POST` sends to
+ *    /reindex;
  *  - a head over the limit is 431, a body over the limit 413 — decided from
  *    the headers, before the body is read.
  *
@@ -210,8 +212,6 @@ final class RequestParser
                 return $this->malformed('Content-Length is not a plain decimal number.');
             }
             $length = (int) $lengths[0];
-        } elseif ($method === 'POST' || $method === 'PUT' || $method === 'PATCH') {
-            return new HttpError(411, 'length_required', 'A request with a body needs Content-Length.');
         }
 
         if ($length > $this->maxBodyBytes) {

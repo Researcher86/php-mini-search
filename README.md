@@ -27,6 +27,39 @@ The goal is to build a simplified search service that exposes the fundamental id
 * an append-only log and crash recovery;
 * an event-driven HTTP server.
 
+## 30-second demo
+
+Requires Docker. Nothing is installed on your machine.
+
+```bash
+make build install   # build the image and install dependencies
+make run-server      # replay data/search.log, listen on 127.0.0.1:8080
+```
+
+In a second terminal, `make shell`, then:
+
+```bash
+T="Authorization: Bearer demo-token-demo-token-demo-token-0"; J="Content-Type: application/json"
+
+curl -H "$T" -X POST localhost:8080/reindex
+# {"generation":1,"cancelled_generation":null}
+
+curl -H "$T" -H "$J" -X PUT localhost:8080/documents/SKU-1 \
+     -d '{"source_version":1,"title":"Кабель USB-C","body":"Быстрая зарядка","generation":1}'
+curl -H "$T" -X POST localhost:8080/reindex/1/complete
+
+curl -H "$T" -H "$J" -X POST localhost:8080/search -d '{"query":"кабели usb"}'
+# {"results":[{"id":"SKU-1","score":1.150728,"source_version":1}],"total":1,"limit":10,"offset":0}
+
+curl -H "$T" localhost:8080/documents/SKU-1
+# what the index holds: {"fields":{"title":{"length":3,"terms":{"кабел":1,"usb":1,"c":1}}, ...}}
+```
+
+`кабели` finds `Кабель` because both stem to `кабел`. Ctrl-C stops the
+server gracefully: requests in flight finish first, for at most 10 seconds,
+and a second Ctrl-C forces it down. A restart replays the log, and
+`bin/mini-search check` and `compact` work on it while the server is stopped.
+
 ## Documentation
 
 | Document | What it covers |
@@ -39,11 +72,11 @@ The goal is to build a simplified search service that exposes the fundamental id
 
 # Project Status
 
-**Phases 0–5 are done: the project skeleton, the postings benchmark (run
+**Phases 0–6 are done: the project skeleton, the postings benchmark (run
 during design), text analysis with hand-written Snowball stemmers, the
 inverted index with BM25 checked against a naive oracle, the durable log
-with `Corpus`, replay and offline compaction, and the event-driven HTTP
-server.** The documents above describe the planned
+with `Corpus`, replay and offline compaction, the event-driven HTTP server,
+and the API with its runtime. The service runs.** The documents above describe the planned
 service, and [PHASES.md](docs/PHASES.md) tracks what is built. The one known
 unknown is what `fsync()` guarantees through Docker Desktop on macOS. It is
 listed in [FAILURE-MODEL.md](docs/FAILURE-MODEL.md#open).

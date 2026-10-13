@@ -106,7 +106,6 @@ final class ServerTest extends TestCase
     {
         yield 'malformed' => ["GET /a HTTP/1.1\r\n\r\n", 400, 'malformed_request'];
         yield 'chunked' => ["POST /a HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n", 501, 'unsupported_transfer_encoding'];
-        yield 'no length' => ["PUT /a HTTP/1.1\r\nHost: x\r\n\r\n", 411, 'length_required'];
         yield 'too large' => ["PUT /a HTTP/1.1\r\nHost: x\r\nContent-Length: 5000\r\n\r\n", 413, 'payload_too_large'];
         yield 'head too large' => ["GET /a HTTP/1.1\r\nHost: x\r\nX: " . str_repeat('a', 1_100) . "\r\n\r\n", 431, 'headers_too_large'];
     }

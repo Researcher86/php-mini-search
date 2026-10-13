@@ -17,7 +17,7 @@ of the index was measured before anything else (Phase 1).
 - [x] Phase 3 — Inverted Index and Ranking
 - [x] Phase 4 — Log and Corpus
 - [x] Phase 5 — HTTP Server
-- [ ] Phase 6 — API and Runtime
+- [x] Phase 6 — API and Runtime
 - [ ] Phase 7 — Reliability End to End
 - [ ] Phase 8 — Baseline Measurements
 - [ ] Phase 9 — Platform Integration
@@ -295,7 +295,7 @@ after a request, the head timeout ignored, no connection cap, and
 
 ---
 
-# Phase 6 — API and Runtime
+# Phase 6 — API and Runtime  ✅
 
 ## Goal
 
@@ -312,6 +312,42 @@ Connect the server to `Corpus` and make the process operable.
 * every endpoint and error code matches [API.md](API.md);
 * `/health/ready` reports `reindex_required` until a reindex completes;
 * `SIGTERM` drains within the deadline.
+
+## Result
+
+`Api` implements docs/API.md over `Corpus`. Every request goes through the
+same steps: request id, then the token (before routing, so 404 and 405 do not
+reveal paths), then the route, the JSON, the fields, and the corpus. Every
+error body is built in one place. `Runtime` adds `Config` (a PHP file, then
+`MINI_SEARCH_*`, then validation, and no start without a 32-byte token),
+`Logger` (JSON lines on stderr) and `Service`. `Service` replays before
+listening, drains on `SIGTERM`, exits at once on a second signal, and stops
+with code 1 after a log failure. `make run-server` and the README demo run
+it.
+
+The first live run found a design bug. `POST /reindex` has no body, and
+`curl -X POST` sends such a request with no `Content-Length`, which the
+planned `411` rule refused. A missing `Content-Length` now means an empty
+body, as RFC 9112 says, and `length_required` is gone from the API
+([DECISIONS.md](DECISIONS.md#content-length-only)).
+
+## Tests
+
+- [tests/Api/ApiTest.php](../tests/Api/ApiTest.php) — every endpoint and
+  every error code of docs/API.md, the error shape, the request id, `Allow`,
+  `415`, the token before the route, and `/stats`.
+- [tests/Runtime/ConfigTest.php](../tests/Runtime/ConfigTest.php) — the
+  token rule, the environment over the file, unknown keys, invalid numbers.
+- [tests/Runtime/ServiceTest.php](../tests/Runtime/ServiceTest.php) — the
+  real process: a first start through to search and a clean stop, a restart
+  that replays, a drain that finishes a request in flight with
+  `Connection: close`, an idle connection that does not hold up the drain, a
+  drain deadline that exits 1, a second signal, and no token. The file ran
+  three times in a row without a flake.
+
+The tests were checked against injected bugs: a drain that keeps
+connections alive, the token checked after the route, and a second signal
+ignored. Each one was caught.
 
 ---
 

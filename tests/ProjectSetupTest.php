@@ -25,6 +25,6 @@ final class ProjectSetupTest extends TestCase
         exec(PHP_BINARY . ' ' . escapeshellarg(__DIR__ . '/../bin/mini-search') . ' 2>&1', $output, $exitCode);
 
         $this->assertSame(2, $exitCode);
-        $this->assertSame(['Usage: mini-search <serve|compact|check> [--data=DIR]'], $output);
+        $this->assertSame(['Usage: mini-search <serve|compact|check> [--data=DIR] [--config=FILE]'], $output);
     }
 }
