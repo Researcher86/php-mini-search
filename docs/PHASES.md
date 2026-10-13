@@ -13,7 +13,7 @@ of the index was measured before anything else (Phase 1).
 
 - [x] Phase 0 — Project Setup
 - [x] Phase 1 — Postings Prototype (during design)
-- [ ] Phase 2 — Text Analysis
+- [x] Phase 2 — Text Analysis
 - [ ] Phase 3 — Inverted Index and Ranking
 - [ ] Phase 4 — Log and Corpus
 - [ ] Phase 5 — HTTP Server
@@ -87,7 +87,7 @@ prototype stays out of the codebase, in `.scratch/`.
 
 ---
 
-# Phase 2 — Text Analysis
+# Phase 2 — Text Analysis  ✅
 
 ## Goal
 
@@ -104,6 +104,31 @@ Turn text into terms the same way for documents and for queries.
 100% of both Snowball vocabularies pass. Tests cover NFKC, `ё`, case,
 numbers, empty text, mixed scripts and apostrophes: `Levi's` matches `levis`
 and `levi`, `O’Neill` matches `oneill`, `д’Артаньян` matches `дартаньян`.
+
+## Result
+
+`Analyzer::terms()` is the whole pipeline: `Кабели USB-C` becomes `кабел`,
+`usb`, `c`. Both stemmers are ports of the `.sbl` sources at the pinned
+commit, written rule for rule. Endings are matched longest first, and when
+the longest ending's condition fails no shorter one is tried, because that is
+how Snowball's `among` behaves. They agree with all 49,785 Russian and 42,649
+English reference pairs.
+
+Only tokens made of ASCII `a`–`z` go to the English stemmer, because Porter2
+is defined for those letters only. Accented Latin (`café`), digits and mixed
+tokens are kept as they are. There are no stop words: `и` and `the` are terms
+like any other.
+
+## Tests
+
+- [tests/Analysis/Snowball/SnowballVocabularyTest.php](../tests/Analysis/Snowball/SnowballVocabularyTest.php) —
+  every word of both vocabularies, one test per language, listing the first
+  mismatches on failure. Over 27,000 of the English pairs change the word, so
+  a stemmer that does nothing fails.
+- [tests/Analysis/AnalyzerTest.php](../tests/Analysis/AnalyzerTest.php) —
+  NFKC (full-width letters, ligatures, `й` and `ё` built from combining
+  marks), `ё`, case, numbers, empty text, script routing, the apostrophe
+  table, and invalid UTF-8.
 
 ---
 

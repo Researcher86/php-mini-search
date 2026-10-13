@@ -132,7 +132,7 @@ scale.
 2. `mb_strtolower`, then `ё → е`;
 3. an apostrophe (`'`, `’` U+2019 or `ʼ` U+02BC) between two letters is removed: `Levi's` → `levis`, `O’Neill` → `oneill`, `д’Артаньян` → `дартаньян`. An apostrophe at the edge of a word is a separator;
 4. tokens are maximal runs of `\p{L}\p{N}`. Everything else is a separator;
-5. Cyrillic tokens go through Snowball Russian, Latin tokens through Snowball English (Porter2), and anything else is left unchanged. Lowercase input is required: Porter2 uses an internal uppercase `Y` marker;
+5. a token made only of Cyrillic letters goes through Snowball Russian, and a token made only of ASCII `a`–`z` through Snowball English (Porter2). Anything else is left unchanged: digits (`usb3`), mixed scripts, and accented Latin (`café`), because Porter2 is defined for `a`–`z` only. Lowercase input is required: Porter2 uses an internal uppercase `Y` marker;
 6. documents and queries go through the same pipeline.
 
 The analyzer has a version. Changing it requires a full reindex.

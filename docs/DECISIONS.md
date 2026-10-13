@@ -199,9 +199,10 @@ With AND and no morphology, a Russian query for `сокет` misses a document
 that contains `сокетов`. A Russian noun has about a dozen forms, so AND
 without stemming is close to unusable for Russian text.
 
-Tokens of Cyrillic letters go through Snowball Russian, tokens of Latin
-letters go through Snowball English (Porter2), and other tokens are left
-as they are. The stemmers are written by hand. The official Snowball
+Tokens of Cyrillic letters go through Snowball Russian, tokens of ASCII
+`a`–`z` go through Snowball English (Porter2), and other tokens (digits,
+mixed scripts, accented Latin such as `café`) are left as they are. Porter2
+is defined for `a`–`z` only. The stemmers are written by hand. The official Snowball
 vocabularies are the test fixtures: about 92,000 word/stem pairs, BSD-3
 licensed. The algorithm still changes upstream (`inter` was added in
 2025-10), so the hand-written stemmers and the fixtures are pinned to the same
