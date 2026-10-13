@@ -207,14 +207,14 @@ the `X-Request-Id` header: it is taken from the client or generated.
 
 # What the platform has to provide
 
-These are integration requirements on `php-systems-platform`, not part of
-this service:
+What `php-systems-platform` does to use this service, as built in its PLAN
+Step 41:
 
-* `researcher86/php-mini-search` in its `composer.json`, and `vendor/bin/mini-search serve` started and supervised as a child process, like the other components;
-* only HTTP and the binary are used, never `PhpMiniSearch\` classes;
-* `products.version`, incremented in the same transaction as every change;
-* a text column to search beyond the 255-character `title`, such as `description`;
-* an outbox row written in the same transaction, turned into a `php-job-queue` job;
-* a worker that reads the **current** row and sends `PUT` or `DELETE`;
-* a full-reindex command, started automatically when `/health/ready` reports `reindex_required`;
-* an HTTP client with a 1-second connect timeout and a 5-second request timeout. The platform has no outbound HTTP client today.
+* requires `researcher86/php-mini-search` through Composer and runs `vendor/bin/mini-search serve` as an owned child process (start-or-adopt), passing `MINI_SEARCH_HOST`, `PORT`, `DATA_DIR` and `TOKEN`;
+* uses only HTTP and the binary, never `PhpMiniSearch\` classes: `src/Search/SearchClient.php` is plain curl, with a 1-second connect timeout and a 5-second request timeout;
+* `products.version`, incremented by every write, sent as `source_version`;
+* `products.description` (`VARCHAR(4000)`; the mini database has no `TEXT`), sent as `body`;
+* a **soft** delete (`products.deleted`): the row and its version outlive the product, so a sku deleted and created again continues above its own tombstone. With a physical delete, the re-created product would start at version 1, below the tombstone, and never be indexed;
+* after each write, a `product.index` job on `php-job-queue`, run by the worker pool, which reads the **current** row and sends `PUT` or `DELETE`. Row first, then the job: the same dual write the platform uses for orders. An outbox was rejected, because the mini database allows one transaction per server. The gap is healed by the next change to the product, or by a full reindex;
+* `product.reindex`, published by `serve` when `/health/ready` reports `reindex_required`, and `bin/platform.php search:reindex` for the same thing by hand;
+* `GET /products/search?q=`: skus and order from this service, rows from the platform's own table.

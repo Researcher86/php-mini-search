@@ -20,7 +20,7 @@ of the index was measured before anything else (Phase 1).
 - [x] Phase 6 — API and Runtime
 - [x] Phase 7 — Reliability End to End
 - [x] Phase 8 — Baseline Measurements
-- [ ] Phase 9 — Platform Integration
+- [x] Phase 9 — Platform Integration
 - [ ] Phase 10 — Documentation and Release
 
 ---
@@ -433,7 +433,7 @@ slow-client profile needed a script anyway.
 
 ---
 
-# Phase 9 — Platform Integration
+# Phase 9 — Platform Integration  ✅
 
 ## Goal
 
@@ -451,6 +451,36 @@ A product is created, found, renamed, found under its new name, deleted and
 no longer found, all through the platform. A reindex started from
 `reindex_required` brings search back.
 
+## Result
+
+`php-systems-platform` (its PLAN Step 41) requires `php-mini-search` at
+`0.9.0`, a tag placed for the integration, and runs it as its sixth
+component. Products got a write path (`PUT`/`DELETE /products/{sku}`) and
+`GET /products/search?q=`. On a fresh data directory, serve publishes
+`product.reindex` by itself, and the three seeded products become searchable.
+
+Three decisions changed the plan, and [API.md](API.md#what-the-platform-has-to-provide)
+records them:
+
+* **dual write instead of an outbox.** The platform has no transactions, and `php-mini-database` allows one per server, so the platform writes the row and then publishes the job, as it does for orders. A full reindex heals the gap;
+* **soft delete.** With a physical delete, a sku deleted and created again would restart at version 1, below its own tombstone, and never be indexed. The live run showed the re-created product at version 4, found;
+* **`intl` in the platform's image**, which this service needs.
+
+One existing test broke. The platform's demo counts its order jobs exactly,
+and the reindex published at start added one. `SEARCH_ENABLED=0`, which
+mirrors the existing `CACHE_ENABLED`, runs the demo without search.
+
+## Tests (in php-systems-platform)
+
+- `tests/Integration/ProductSearchIntegrationTest.php` — the lifecycle
+  above through serve, the queue consumer and the worker pool. Each check
+  waits for the index to catch up. Also: a result shows the catalog's row,
+  and invalid products and queries are refused.
+- `tests/Integration/MigratorUpgradeTest.php` — `products` gains its columns
+  in place, and a version keeps counting across a delete and a re-create.
+- The whole suite: unit 145, integration 133, e2e 7, PHPStan and the
+  formatter clean.
+
 ---
 
 # Phase 10 — Documentation and Release
@@ -463,7 +493,8 @@ Join the lab, as one consistent change across every repository:
 * `php-mini-database`: its "→" link points to `php-mini-search`. `php-systems-platform`: its "←" link points to `php-mini-search`;
 * the hub: "five components" becomes "six", "Levels 1–7" becomes "Levels 1–8", the release statement, the Repositories table, and the Architecture, How the Projects Connect and Mental Map diagrams;
 * the hub's Out of Scope: narrowed as described in [DECISIONS.md](DECISIONS.md#the-lab-changes-at-release);
-* this README: drop "(planned)" and the note under the table.
+* this README: drop "(planned)" and the note under the table;
+* `php-systems-platform`: pin `researcher86/php-mini-search` to `1.0.0` instead of `0.9.0`, and update its README (the component table, "five" → "six", the Status section) and `docs/components.md`.
 
 ## Definition of Done
 

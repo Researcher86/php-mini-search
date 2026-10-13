@@ -41,10 +41,10 @@ removed.
 ```text
  php-systems-platform                                   php-mini-search
 ┌──────────────────────────────────┐                 ┌────────────────────────┐
-│ product changed                  │                 │                        │
-│   └─ same transaction:           │                 │                        │
-│        products.version += 1     │                 │                        │
-│        outbox row                │                 │                        │
+│ PUT/DELETE /products/{sku}       │                 │                        │
+│   1. row written, version += 1   │                 │                        │
+│      (a delete is soft)          │                 │                        │
+│   2. product.index published     │                 │                        │
 │ php-job-queue ──► worker ────────┼── PUT/DELETE ──►│  log ─► in-memory      │
 │                   reads the      │    + version    │         index          │
 │                   current row    │                 │                        │

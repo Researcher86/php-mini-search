@@ -63,8 +63,16 @@ for this project is what no other project in the lab covers: text analysis,
 the inverted index and ranking.
 
 What it costs: the platform has to grow an indexing pipeline (a version
-column, an outbox, a worker, a reindex command). Search results can also lag
+column, a soft delete, a job, a reindex command). Search results can also lag
 behind the database by the time it takes a job to run.
+
+The first plan wrote the product row and an outbox row in one transaction.
+The platform has no transactions, and `php-mini-database` allows one at a
+time per server, so an outbox transaction around every product write would
+block all of the platform's other writes. The platform uses the dual write it
+already uses for orders: the row first, then the job. A crash in between
+leaves the index one change behind, which the next change or a full reindex
+heals (the platform's `docs/failure-handling.md`).
 
 # An append-only log is the only durable state
 
