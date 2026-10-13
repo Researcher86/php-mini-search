@@ -28,6 +28,7 @@ $finder = PhpCsFixer\Finder::create()
         __DIR__ . '/src',
         __DIR__ . '/tests',
         __DIR__ . '/bin',
+        __DIR__ . '/benchmarks',
     ])
     // bin/mini-search has no .php extension, so the default *.php filter
     // would skip the one file every user runs first.

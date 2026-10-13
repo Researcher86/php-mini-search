@@ -72,12 +72,13 @@ and a second Ctrl-C forces it down. A restart replays the log, and
 
 # Project Status
 
-**Phases 0–7 are done: the project skeleton, the postings benchmark (run
+**Phases 0–8 are done: the project skeleton, the postings benchmark (run
 during design), text analysis with hand-written Snowball stemmers, the
 inverted index with BM25 checked against a naive oracle, the durable log
 with `Corpus`, replay and offline compaction, the event-driven HTTP server,
 the API with its runtime, and the failure model proven on the real process
-with `kill -9` and a full disk. The service runs.** The documents above describe the planned
+with `kill -9` and a full disk, and a measured baseline: on 10,000 Wikipedia
+articles, 10,575 searches/s at p99 6 ms, a 6.7 s startup, 239 MB peak RSS.** The documents above describe the planned
 service, and [PHASES.md](docs/PHASES.md) tracks what is built. The one known
 unknown is what `fsync()` guarantees through Docker Desktop on macOS. It is
 listed in [FAILURE-MODEL.md](docs/FAILURE-MODEL.md#open).

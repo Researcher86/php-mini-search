@@ -1,4 +1,4 @@
-.PHONY: up down shell htop build install test analyse format format-check run-server
+.PHONY: up down shell htop build install test analyse format format-check run-server bench bench-wikipedia
 
 # CI has no terminal to attach to (GitHub Actions sets CI=true), so exec runs
 # without one there; locally it keeps the TTY for colours and interactive use.
@@ -35,6 +35,14 @@ analyse: up
 # Logs one JSON line per event to the terminal; Ctrl-C drains, a second Ctrl-C forces.
 run-server: up
 	docker compose exec $(TTY) -e MINI_SEARCH_TOKEN=$(TOKEN) php php bin/mini-search serve
+
+# The baseline on a synthetic corpus: SECONDS per profile (default 8).
+bench: up
+	docker compose exec $(TTY) -e XDEBUG_MODE=off php bash -c "php benchmarks/corpus-synthetic.php 10000 > /tmp/synthetic.jsonl && php -d memory_limit=-1 benchmarks/run.php /tmp/synthetic.jsonl $(or $(SECONDS),8)"
+
+# The same on 10,000 Wikipedia introductions, downloaded once into benchmarks/data/ (never committed).
+bench-wikipedia: up
+	docker compose exec $(TTY) -e XDEBUG_MODE=off php bash -c "test -s benchmarks/data/wikipedia.jsonl || php benchmarks/corpus-wikipedia.php 10000 > benchmarks/data/wikipedia.jsonl; php -d memory_limit=-1 benchmarks/run.php benchmarks/data/wikipedia.jsonl $(or $(SECONDS),8)"
 
 format: up
 	docker compose exec $(TTY) php composer format

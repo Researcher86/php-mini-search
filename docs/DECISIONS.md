@@ -28,6 +28,7 @@ guaranteed, see [FAILURE-MODEL.md](FAILURE-MODEL.md).
 | **Refuse to start on a damaged log** | **superseded** — [why](#a-damaged-or-empty-log-means-reindex_required). Once the index is derived, a damaged log is a lost cache, not lost data |
 | A query matches only documents containing every term | current, [why](#and-not-or) |
 | Russian and English stemming from the first version | current, [why](#stemming-from-the-first-version) |
+| Stems are cached, token → term | current, [why](#stems-are-cached) |
 | Apostrophes inside a word are removed, not split on | current, [why](#apostrophes-are-removed-inside-a-word) |
 | BM25 from the start, with per-field weights | current, [why](#bm25-from-the-start) |
 | Search returns ids, not stored fields | current, [why](#search-returns-ids) |
@@ -421,3 +422,25 @@ apostrophe at the edge of a word (`'quoted'`) stays a separator.
 
 What it costs: Porter2's own step for `'s` is never used. Its plural rule
 gives the same stem for `levis`.
+
+# Stems are cached
+
+The first measured baseline missed the startup target three times over: a
+replay of 10,000 documents took 29.9 s against 10 s, and a single `PUT` took
+24 ms. Stemming was 96% of the cost of analysis, at 12 µs a token. Yet 90% of
+the tokens in a corpus repeat: 5 million tokens, 27,379 distinct words.
+
+`Analyzer` keeps a `token → term` cache of up to 200,000 entries and empties
+it when it is full. A replay now takes 5.0 s and a `PUT` 8 ms
+([BENCHMARKS.md](BENCHMARKS.md)). The cache cannot change a result: a token
+always gives the same term, and the Snowball vocabularies and the oracle
+comparison still pass.
+
+Two options were rejected:
+
+* making the stemmers faster, by taking `mb_*` calls and regular expressions out of their hot paths. That might gain 2–3 times, not 40, and the stemmers would no longer read as a port of the `.sbl` sources line by line;
+* keeping the slow path and raising the startup target, or bringing back the index snapshot. That would answer a cost that a few lines remove.
+
+What it costs: up to 200,000 short strings in memory — about 4 MB on the
+synthetic corpus, a few tens of MB at most. When the cache fills on a large
+vocabulary, a few stems are computed again.

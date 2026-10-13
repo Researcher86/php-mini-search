@@ -135,7 +135,9 @@ scale.
 5. a token made only of Cyrillic letters goes through Snowball Russian, and a token made only of ASCII `a`–`z` through Snowball English (Porter2). Anything else is left unchanged: digits (`usb3`), mixed scripts, and accented Latin (`café`), because Porter2 is defined for `a`–`z` only. Lowercase input is required: Porter2 uses an internal uppercase `Y` marker;
 6. documents and queries go through the same pipeline.
 
-The analyzer has a version. Changing it requires a full reindex.
+Stems are cached, `token → term`, up to 200,000 entries. Stemming was 96% of
+the cost of analysis, and 90% of tokens repeat. The cache turned a 30-second
+replay into a 5-second one ([DECISIONS.md](DECISIONS.md#stems-are-cached)).
 
 ---
 
@@ -285,4 +287,6 @@ Limits (all configurable):
 * p99 search latency with 200 idle slow connections open is no worse than twice the latency without them;
 * no errors on any load profile that does not overload the service.
 
-Absolute latency and throughput targets are not set until a baseline exists.
+All four targets are met, measured on a synthetic corpus and on a slice of
+Wikipedia ([BENCHMARKS.md](BENCHMARKS.md)). Absolute latency and throughput
+targets were never set; the baseline is there for whoever wants to set them.

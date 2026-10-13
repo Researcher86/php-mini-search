@@ -19,7 +19,7 @@ of the index was measured before anything else (Phase 1).
 - [x] Phase 5 — HTTP Server
 - [x] Phase 6 — API and Runtime
 - [x] Phase 7 — Reliability End to End
-- [ ] Phase 8 — Baseline Measurements
+- [x] Phase 8 — Baseline Measurements
 - [ ] Phase 9 — Platform Integration
 - [ ] Phase 10 — Documentation and Release
 
@@ -390,7 +390,7 @@ tests depend on. Only request lines are filtered by level now.
 
 ---
 
-# Phase 8 — Baseline Measurements
+# Phase 8 — Baseline Measurements  ✅
 
 ## Goal
 
@@ -408,6 +408,28 @@ Measure before optimising.
 and startup time. Each of the targets in
 [ARCHITECTURE.md](ARCHITECTURE.md#targets) is either met, or the gap and the
 decision taken about it is documented.
+
+## Result
+
+All four targets are met on both corpora ([BENCHMARKS.md](BENCHMARKS.md)).
+On Wikipedia: peak RSS 239 MB, startup 6.7 s, search 10,575/s at p99 6 ms,
+writes 1,134/s.
+
+They were not met at first. The baseline without changes replayed 10,000
+documents in 29.9 s against a 10 s target. Stemming was 96% of analysis, and
+90% of tokens repeat, so a bounded `token → term` cache in `Analyzer` took the
+replay to 5.0 s and a `PUT` from 24 ms to 8 ms, without changing any result
+([DECISIONS.md](DECISIONS.md#stems-are-cached)).
+
+Three more findings came out of measuring:
+
+* PHP's default `memory_limit` of 128 MB stopped the service at a few thousand documents. The service now sets it itself (`768M`, `MINI_SEARCH_MEMORY_LIMIT`);
+* the development image loads Xdebug, and runs made with it were up to 2.7 times slower. Benchmarks run with `XDEBUG_MODE=off`;
+* the MediaWiki API needs about 7 s for a request of 20 plain-text extracts. The Wikipedia slice comes from the same dumps through the Hugging Face datasets server instead, paced and backing off on `429`.
+
+The plan named `wrk` for throughput. A PHP load generator was written
+instead, as in the sibling projects. It keeps the image unchanged, and the
+slow-client profile needed a script anyway.
 
 ---
 

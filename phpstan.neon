@@ -6,6 +6,7 @@ parameters:
         # No .php extension, so it is not picked up from the bin directory.
         - bin/mini-search
         - tests
+        - benchmarks
 
 includes:
     - vendor/phpstan/phpstan-phpunit/extension.neon

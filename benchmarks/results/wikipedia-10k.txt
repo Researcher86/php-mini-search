@@ -1,0 +1,20 @@
+
+wikipedia.jsonl: 10000 documents, 151505 terms, log 26.8 MB, PHP 8.5.11, 12 CPUs
+
+profile       requests      rps  errors    p50 ms    p95 ms    p99 ms
+load             10000   1107.4       0      7.08     10.25     12.11
+search           84601  10575.1       0      0.99      4.27      5.96
+write             9070   1133.8       0      6.95      9.32     10.70
+mixed/search     54381   7161.9       0      1.78      5.09      6.88
+mixed/write       2914   7161.9       0      2.69      5.85      7.73
+slow             70172   8771.5       0      1.31      4.57      6.33
+
+RSS after load 218.8 MB, peak 239.2 MB, after replay 231.3 MB
+startup 6.66 s (replay of 21992 records in 6639 ms)
+
+  met     peak RSS ≤ 512 MB
+  met     startup ≤ 10 s
+  met     p99 with 200 slow clients ≤ 2 × p99 without
+  met     no errors
+
+{"corpus":"wikipedia.jsonl","documents":10000,"terms":151505,"log_bytes":28072308,"profiles":{"load":{"requests":10000,"errors":0,"seconds":9.03,"latency":{"write":{"count":10000,"p50":7.08,"p95":10.25,"p99":12.11}},"slowClientsLeft":0},"search":{"requests":84601,"errors":0,"seconds":8,"latency":{"search":{"count":84601,"p50":0.99,"p95":4.27,"p99":5.96}},"slowClientsLeft":0},"write":{"requests":9070,"errors":0,"seconds":8,"latency":{"write":{"count":9070,"p50":6.95,"p95":9.32,"p99":10.7}},"slowClientsLeft":0},"mixed":{"requests":57295,"errors":0,"seconds":8,"latency":{"search":{"count":54381,"p50":1.78,"p95":5.09,"p99":6.88},"write":{"count":2914,"p50":2.69,"p95":5.85,"p99":7.73}},"slowClientsLeft":0},"slow":{"requests":70172,"errors":0,"seconds":8,"latency":{"search":{"count":70172,"p50":1.31,"p95":4.57,"p99":6.33}},"slowClientsLeft":200}},"rss_after_load_mb":218.8,"peak_rss_mb":239.2,"rss_after_replay_mb":231.3,"startup_s":6.66,"replay_records":21992,"replay_ms":6638.7,"targets":{"peak RSS ≤ 512 MB":true,"startup ≤ 10 s":true,"p99 with 200 slow clients ≤ 2 × p99 without":true,"no errors":true}}

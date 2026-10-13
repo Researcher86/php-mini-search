@@ -43,6 +43,7 @@ final class Service
 
     public function run(): int
     {
+        ini_set('memory_limit', $this->config->memoryLimit);
         pcntl_async_signals(true);
         pcntl_signal(SIGTERM, $this->onSignal(...));
         pcntl_signal(SIGINT, $this->onSignal(...));

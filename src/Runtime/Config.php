@@ -26,6 +26,11 @@ use PhpMiniSearch\Http\ServerConfig;
  * | body_timeout     | MINI_SEARCH_BODY_TIMEOUT      | 30             |
  * | idle_timeout     | MINI_SEARCH_IDLE_TIMEOUT      | 30             |
  * | write_timeout    | MINI_SEARCH_WRITE_TIMEOUT     | 30             |
+ * | memory_limit     | MINI_SEARCH_MEMORY_LIMIT      | 768M           |
+ *
+ * memory_limit is set by the service itself: PHP's default of 128M is far
+ * below the ~320 MB index of 10,000 documents, and the budget is 512 MB RSS
+ * plus headroom for the peaks of building responses.
  */
 final readonly class Config
 {
@@ -41,6 +46,7 @@ final readonly class Config
         'body_timeout' => 30,
         'idle_timeout' => 30,
         'write_timeout' => 30,
+        'memory_limit' => '768M',
     ];
 
     /**
@@ -51,6 +57,7 @@ final readonly class Config
         public string $token,
         public string $logLevel,
         public float $drainSeconds,
+        public string $memoryLimit,
         public ServerConfig $server,
     ) {
     }
@@ -97,11 +104,17 @@ final readonly class Config
 
         $dataDirectory = self::text($values['data_dir']);
 
+        $memoryLimit = self::text($values['memory_limit']);
+        if (preg_match('/^(-1|[1-9][0-9]*[KMG]?)$/', $memoryLimit) !== 1) {
+            throw new InvalidArgumentException('memory_limit must look like 768M, 1G or -1.');
+        }
+
         return new self(
             $dataDirectory === '' ? $workingDirectory . '/data' : $dataDirectory,
             $token,
             $logLevel,
             self::seconds($values['drain_seconds'], 'drain_seconds'),
+            $memoryLimit,
             new ServerConfig(
                 host: self::text($values['host']),
                 port: self::integer($values['port'], 'port', 0, 65_535),

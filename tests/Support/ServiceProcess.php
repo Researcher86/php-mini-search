@@ -30,7 +30,7 @@ final class ServiceProcess
     /**
      * @param array<string, string> $environment on top of the defaults: the token, port 0, and $dataDirectory
      */
-    public function __construct(string $dataDirectory, array $environment = [])
+    public function __construct(string $dataDirectory, array $environment = [], private readonly float $startTimeout = 10.0)
     {
         $environment += [
             'MINI_SEARCH_TOKEN' => self::TOKEN,
@@ -130,6 +130,11 @@ final class ServiceProcess
         return ['status' => $status, 'headers' => $headers, 'body' => is_array($decoded) ? $decoded : []];
     }
 
+    public function pid(): int
+    {
+        return proc_get_status($this->process)['pid'];
+    }
+
     public function signal(int $signal): void
     {
         proc_terminate($this->process, $signal);
@@ -188,7 +193,7 @@ final class ServiceProcess
 
     private function waitForAddress(): string
     {
-        $deadline = microtime(true) + 10.0;
+        $deadline = microtime(true) + $this->startTimeout;
         while (microtime(true) < $deadline) {
             foreach ($this->logLines() as $line) {
                 if (($line['event'] ?? null) === 'listening' && is_string($line['address'] ?? null)) {
