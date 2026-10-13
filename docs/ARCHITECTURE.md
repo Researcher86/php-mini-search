@@ -250,6 +250,9 @@ A `stream_select()` interrupted by a signal is not an error.
 * HTTP/1.1 and HTTP/1.0. Keep-alive is the default in 1.1. In 1.0 it is used only with `Connection: keep-alive`;
 * pipelining is sequential: leftover bytes stay in the buffer, the requests on one connection are handled one at a time, and responses go out in order;
 * bodies are framed by `Content-Length` only. `Expect: 100-continue` gets `100 Continue` or `413`;
+* lines end in CRLF: a bare CR or LF, a NUL or a folded header line is `400`. Only origin-form targets (`/path`) are accepted, and HTTP/1.1 requires `Host`. A repeated `Content-Length` is `400` even when both values agree, and `POST`/`PUT` without one is `411`;
+* the next pipelined request is parsed only after the previous response is fully written. While a whole request is buffered, the socket is not read. This keeps responses in order and is the backpressure: a client that pipelines without reading fills its own socket buffer;
+* a handler that throws becomes `500 internal_error`. `HEAD` gets headers with the length of the body, but no body;
 * responses always carry `Content-Length`. Any response after which the stream state is uncertain carries `Connection: close`.
 
 Limits (all configurable):

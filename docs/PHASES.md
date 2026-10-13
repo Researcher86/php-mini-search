@@ -16,7 +16,7 @@ of the index was measured before anything else (Phase 1).
 - [x] Phase 2 — Text Analysis
 - [x] Phase 3 — Inverted Index and Ranking
 - [x] Phase 4 — Log and Corpus
-- [ ] Phase 5 — HTTP Server
+- [x] Phase 5 — HTTP Server
 - [ ] Phase 6 — API and Runtime
 - [ ] Phase 7 — Reliability End to End
 - [ ] Phase 8 — Baseline Measurements
@@ -248,7 +248,7 @@ failing-log test was added.
 
 ---
 
-# Phase 5 — HTTP Server
+# Phase 5 — HTTP Server  ✅
 
 ## Goal
 
@@ -266,6 +266,32 @@ An event-driven HTTP/1.1 server that knows nothing about search.
 * every request gives the same result whether it is sent whole, byte by byte or in random chunks;
 * every limit and timeout is covered by an integration test;
 * pipelined requests are answered in order.
+
+## Result
+
+`Server` is one `stream_select()` loop over non-blocking sockets.
+`RequestParser` is incremental and refuses everything outside the subset.
+`RequestHandler` is the only seam: `handle()` for requests, `reject()` for
+the framing errors the server answers itself. The server runs one `tick()` at
+a time, with an injectable clock, so tests turn the loop themselves and move
+time instead of sleeping. The handler for the API arrives in Phase 6.
+
+## Tests
+
+- [tests/Http/RequestParserTest.php](../tests/Http/RequestParserTest.php) —
+  29 valid and malformed requests, pipelining among them. Each is delivered
+  whole, byte by byte and in five rounds of random chunks, and must give the
+  same result every time. Also `100-continue`, and repeated and mixed-case
+  headers.
+- [tests/Http/ServerTest.php](../tests/Http/ServerTest.php) — real sockets:
+  Content-Length, keep-alive, pipelining in order, `Connection: close`,
+  HTTP/1.0, every rejection whole and byte by byte, `100-continue` both ways,
+  `HEAD`, a throwing handler, the head, body, idle and write timeouts, and
+  the connection cap.
+
+The tests were checked against injected bugs: the parser dropping bytes
+after a request, the head timeout ignored, no connection cap, and
+`Transfer-Encoding` accepted. Each one was caught.
 
 ---
 
