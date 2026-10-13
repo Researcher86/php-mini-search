@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same Docker image and the same make targets as local development:
+      # CI checks the environment the project is actually developed in.
+      - run: make build
+
+      - run: make install
+
+      - run: make test
+
+      - run: make analyse
+
+      - run: make format-check
+
+      - if: always()
+        run: make down

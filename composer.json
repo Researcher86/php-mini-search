@@ -1,0 +1,39 @@
+{
+    "name": "researcher86/php-mini-search",
+    "type": "project",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "PhpMiniSearch\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PhpMiniSearch\\Tests\\": "tests/"
+        }
+    },
+    "bin": [
+        "bin/mini-search"
+    ],
+    "require": {
+        "php": "^8.5",
+        "ext-intl": "*",
+        "ext-mbstring": "*",
+        "ext-pcntl": "*"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan-phpunit": "^2.0",
+        "phpunit/phpunit": "^11.5"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse --memory-limit=1G",
+        "format": "php-cs-fixer fix --diff",
+        "format:check": "php-cs-fixer fix --diff --dry-run"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

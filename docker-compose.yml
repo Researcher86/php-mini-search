@@ -1,0 +1,9 @@
+services:
+  php:
+    build: .
+    container_name: php-mini-search
+    working_dir: /app
+    volumes:
+      - .:/app
+    stdin_open: true
+    tty: true

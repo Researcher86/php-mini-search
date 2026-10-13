@@ -11,7 +11,7 @@ of the index was measured before anything else (Phase 1).
 
 # Progress
 
-- [ ] Phase 0 — Project Setup
+- [x] Phase 0 — Project Setup
 - [x] Phase 1 — Postings Prototype (during design)
 - [ ] Phase 2 — Text Analysis
 - [ ] Phase 3 — Inverted Index and Ranking
@@ -25,7 +25,7 @@ of the index was measured before anything else (Phase 1).
 
 ---
 
-# Phase 0 — Project Setup
+# Phase 0 — Project Setup  ✅
 
 ## Goal
 
@@ -41,6 +41,29 @@ Create the same foundation as the other projects in the lab.
 ## Definition of Done
 
 `make install test analyse format-check` passes locally and in CI.
+
+## Result
+
+```text
+make build → make install → make test → make analyse → make format-check
+```
+
+All of them run inside the same `php:8.5-cli` image, locally and in CI.
+PHPStan runs at `level: max` over `src`, `bin` and `tests`, including the
+extensionless `bin/mini-search`, which has to be listed by name. `bin/mini-search` refuses to start without
+`intl`, `mbstring` or `pcntl`, and names the reason for each. Its commands
+answer "not built yet" with the phase that builds them.
+
+## Tests
+
+- [tests/ProjectSetupTest.php](../tests/ProjectSetupTest.php) —
+  `testProjectLoads` proves PSR-4 autoloading resolves a class out of `src/`;
+  `testTheEntryPointRunsAndPrintsUsage` runs `bin/mini-search` as a real
+  process, which proves `bin/bootstrap.php` finds the autoloader and the
+  extension check passes in the development image.
+- [tests/Runtime/RequiredExtensionsTest.php](../tests/Runtime/RequiredExtensionsTest.php) —
+  a missing extension is reported with its reason, and the development image
+  carries every required one.
 
 ---
 

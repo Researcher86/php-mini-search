@@ -39,10 +39,11 @@ The goal is to build a simplified search service that exposes the fundamental id
 
 # Project Status
 
-**Design complete, implementation not started.** The documents above
-describe the planned service, and no decision blocks Phase 0. The one known
-unknown, what `fsync()` guarantees through Docker Desktop on macOS, is listed
-in [FAILURE-MODEL.md](docs/FAILURE-MODEL.md#open).
+**Phase 0 (the project skeleton) is done, and so is Phase 1, the postings
+benchmark run during design.** The documents above describe the planned
+service, and [PHASES.md](docs/PHASES.md) tracks what is built. The one known
+unknown is what `fsync()` guarantees through Docker Desktop on macOS. It is
+listed in [FAILURE-MODEL.md](docs/FAILURE-MODEL.md#open).
 
 # Why?
 

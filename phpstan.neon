@@ -1,0 +1,12 @@
+parameters:
+    level: max
+    paths:
+        - src
+        - bin
+        # No .php extension, so it is not picked up from the bin directory.
+        - bin/mini-search
+        - tests
+
+includes:
+    - vendor/phpstan/phpstan-phpunit/extension.neon
+    - vendor/phpstan/phpstan-phpunit/rules.neon

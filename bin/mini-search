@@ -1,0 +1,45 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/**
+ * The single entry point: `serve` runs the service, `compact` and `check`
+ * work on the log while the service is stopped (docs/ARCHITECTURE.md).
+ *
+ * The platform starts this file as `vendor/bin/mini-search serve`, so it has
+ * no extension and is listed under "bin" in composer.json.
+ *
+ * Phase 0 only refuses to run without the required extensions; the commands
+ * arrive with the phases that build them (docs/PHASES.md).
+ */
+
+require __DIR__ . '/bootstrap.php';
+
+use PhpMiniSearch\Runtime\RequiredExtensions;
+
+$missing = (new RequiredExtensions())->missing();
+
+if ($missing !== []) {
+    foreach ($missing as $extension => $reason) {
+        fwrite(STDERR, "Missing PHP extension '{$extension}': needed for {$reason}.\n");
+    }
+
+    exit(1);
+}
+
+$command = $argv[1] ?? null;
+
+$planned = [
+    'serve' => 'Phase 6',
+    'compact' => 'Phase 4',
+    'check' => 'Phase 4',
+];
+
+if (!is_string($command) || !isset($planned[$command])) {
+    fwrite(STDERR, "Usage: mini-search <serve|compact|check>\n");
+    exit(2);
+}
+
+fwrite(STDERR, "mini-search {$command}: not built yet ({$planned[$command]} in docs/PHASES.md).\n");
+exit(1);
