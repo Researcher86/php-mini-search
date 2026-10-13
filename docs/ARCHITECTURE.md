@@ -1,0 +1,251 @@
+# Architecture
+
+How `php-mini-search` is put together, traced through one write and one
+search. This is the planned design. The memory figures were measured with a
+throwaway benchmark, and everything else is still to be measured in Phase 8.
+
+For why each choice was made, see [DECISIONS.md](DECISIONS.md). For the HTTP
+contract, see [API.md](API.md).
+
+---
+
+# Vocabulary
+
+**Document**: a searchable projection of one platform record (a product),
+identified by the platform's id. The platform's database, not this service,
+is its source of truth.
+
+**Corpus**: the set of all documents one service instance currently holds.
+
+**Term**: the normalized, stemmed unit of text that the index stores and
+that queries match against. It is produced the same way from documents and
+from queries. A *token* is the raw piece of text before normalization and
+stemming.
+
+**Source version**: a monotonic integer owned by the platform record that a
+document projects. A write whose source version is not greater than the
+stored one is stale and is ignored.
+
+**Tombstone**: the remembered fact that a document was deleted at a given
+source version. It is kept so that a stale write cannot resurrect the
+document.
+
+**Generation**: one full reindex. Documents written as part of it are marked
+with its number. When it completes, every document it did not mark is
+removed.
+
+---
+
+# Where it sits
+
+```text
+ php-systems-platform                                   php-mini-search
+┌──────────────────────────────────┐                 ┌────────────────────────┐
+│ product changed                  │                 │                        │
+│   └─ same transaction:           │                 │                        │
+│        products.version += 1     │                 │                        │
+│        outbox row                │                 │                        │
+│ php-job-queue ──► worker ────────┼── PUT/DELETE ──►│  log ─► in-memory      │
+│                   reads the      │    + version    │         index          │
+│                   current row    │                 │                        │
+│ search controller ───────────────┼── POST /search ►│  ids + scores          │
+│   └─ SELECT … WHERE sku IN (ids) │◄────────────────┤                        │
+└──────────────────────────────────┘                 └────────────────────────┘
+        php-mini-database is the source of truth; the index can always be rebuilt
+```
+
+The platform requires this project through Composer and runs
+`vendor/bin/mini-search serve` as a child process on `127.0.0.1`, like its
+other components. It talks to it only over HTTP.
+
+---
+
+# Components
+
+An arrow means "knows about".
+
+```text
+bin/mini-search (serve | compact | check)
+   └─ Runtime   — config, extension checks, logger, signals, wiring
+        ├─ Http     — event loop, connections, incremental parser, limits, responses.
+        │             Knows nothing about search: takes a Request → Response handler.
+        └─ Api      — routes, JSON validation, token, error mapping → calls Corpus
+             └─ Corpus  — sole owner of the write order, source versions,
+                  │       tombstones, generations, replay
+                  ├─ Analysis — tokenizer, normalization, Snowball RU/EN (pure functions)
+                  ├─ Index    — postings, statistics, intersection, BM25, top-k (memory only)
+                  └─ Storage  — log format, checksums, append + fsync, recovery, compaction
+```
+
+* `Corpus` is the deep module. Its interface is `put`, `delete`, `get`, `search`, `beginReindex`, `completeReindex` and `stats`. Nothing else touches the log and the index together;
+* `Api` sees only `Corpus`, and `Http` knows nothing about search;
+* ranking lives inside `Index`. It moves out only if BM25F arrives;
+* `Http` is generic but minimal: one handler interface, no middleware.
+
+---
+
+# The write path
+
+```text
+PUT /documents/SKU-42  {source_version: 17, title, body}
+  │
+  ├─ Http     frame by Content-Length, enforce limits
+  ├─ Api      token, JSON schema, field limits
+  └─ Corpus
+       1. stale?   stored version ≥ 17, or a tombstone ≥ 17 → 200 applied:false
+       2. analyse  title and body → terms per field
+       3. append   one checksummed record to the log
+       4. fflush + fsync
+       5. apply    remove the old postings, add the new ones, update statistics
+       6. respond  200 applied:true
+```
+
+While a reindex generation is open, step 5 also marks the document with
+that generation, whether or not the request named one. See
+[API.md](API.md#writes-during-a-reindex).
+
+Steps 3–5 are never reordered. A search can see a document only after it is
+durable. A failed append or fsync answers `503` and stops the process.
+
+---
+
+# The search path
+
+```text
+POST /search  {query: "кабель usb", limit: 10, offset: 0}
+  1. analyse      NFKC → lowercase → ё→е → tokens → stems; 0 terms → 422 empty_query
+  2. order        deduplicate, sort terms; at most 32
+  3. intersect    postings, starting from the rarest term (AND)
+  4. score        Σ terms (sorted) Σ fields  w_field · BM25(tf, df, len, avglen)
+  5. top-k        heap of size offset + limit (≤ 1000); ties by id ascending
+  6. respond      [{id, score, source_version}], total = size of the intersection
+```
+
+The search never reads the disk. `score` is a relative number with no stable
+scale.
+
+---
+
+# Text analysis
+
+1. Unicode NFKC (`Normalizer`, `ext-intl`). This makes `й` and `ё` single precomposed characters, as the Snowball rules expect;
+2. `mb_strtolower`, then `ё → е`;
+3. an apostrophe (`'`, `’` U+2019 or `ʼ` U+02BC) between two letters is removed: `Levi's` → `levis`, `O’Neill` → `oneill`, `д’Артаньян` → `дартаньян`. An apostrophe at the edge of a word is a separator;
+4. tokens are maximal runs of `\p{L}\p{N}`. Everything else is a separator;
+5. Cyrillic tokens go through Snowball Russian, Latin tokens through Snowball English (Porter2), and anything else is left unchanged. Lowercase input is required: Porter2 uses an internal uppercase `Y` marker;
+6. documents and queries go through the same pipeline.
+
+The analyzer has a version. Changing it requires a full reindex.
+
+---
+
+# The index
+
+* `term → postings` kept separately for `title` and `body`; a posting holds an internal document number and a term frequency;
+* statistics: document frequency per term, the length of each field of each document, the average length of each field, and the number of documents;
+* `id ↔ internal number`, the source version and generation per document, and the tombstones.
+
+Invariants, checked after every operation in tests:
+
+* every posting points at a live document;
+* a term's document frequency equals the length of its posting list;
+* a document's term frequencies add up to its field lengths;
+* a replaced or deleted document leaves no postings behind.
+
+Postings are nested PHP arrays, `term → [docNum => tf]`, chosen by
+measurement. On 10,000 synthetic documents (about 4.2 million postings) the
+index takes 319 MB, peak RSS is 368 MB, and deleting a document (one `unset`
+per term) costs 0.3 ms. Packed binary strings were six times smaller, but
+deleting from them cost twenty times more, and the code is harder to read.
+At the target size the compact form buys nothing that is needed. The numbers
+are in [DECISIONS.md](DECISIONS.md#postings-are-plain-php-arrays).
+
+---
+
+# Storage
+
+One append-only log is the only durable state:
+
+* one file, `data/search.log`, starting with the magic `MSLOG` and format version `1`;
+* each record is `[uint32 body length][uint32 crc32 of body][JSON body]`, packed with `pack('NN')` (big-endian). The length and checksum frame the record. The body stays readable;
+* operations: `put` (`id`, `source_version`, `generation` when part of a reindex, `title`, `body`), `delete` (`id`, `source_version`), `reindex-begin`, `reindex-complete` (`generation`), and `checkpoint`, written only by compaction;
+* the log holds raw text, and replay analyses it again. The analyzer version is therefore not part of the format.
+
+A torn tail and corruption are told apart like this:
+
+* a length above 256 KB is corruption. No valid record is that large;
+* only the **last** record may be short, or fail its checksum, and then it is a torn tail;
+* a checksum failure anywhere else is corruption.
+
+At startup:
+
+1. check the extensions and the config, including the token;
+2. replay the log before opening the socket (a few seconds at the target size);
+3. a torn tail is truncated. A checksum failure elsewhere, or no log at all, moves the log aside if there is one and enters `reindex_required`;
+4. open the listening socket. `/health/live` answers `200`. `/health/ready` answers `200`, or `503` while the service is in `reindex_required`.
+
+The durability recipe (verified against the php-src code and strace, PHP
+8.5, Linux):
+
+* call `fflush()` before every `fsync()`. After the first `fsync()` the stream is buffered by libc, and write errors surface only at the next sync;
+* write the compaction temp file in the same directory as the log, because across filesystems `rename()` silently degrades to an unsynced copy;
+* fsync the directory with `fsync(fopen($dir, 'r'))`.
+
+---
+
+# Concurrency
+
+One process, one thread, one `stream_select()` loop. Client I/O is
+multiplexed and request handling is synchronous, so every `Corpus`
+operation is serialized. A write is never half visible, and checking a
+source version and then applying it is atomic without locks.
+
+Shutdown on `SIGTERM` or `SIGINT` (`pcntl_async_signals`):
+
+* close the listening socket and the idle keep-alive connections;
+* finish the requests in flight and answer them with `Connection: close`;
+* after a 10-second deadline (configurable), close whatever is left;
+* exit with code 0 after a clean drain, or a non-zero code if the deadline expired. A second signal exits at once, and a signal during replay stops the replay immediately.
+
+A `stream_select()` interrupted by a signal is not an error.
+
+---
+
+# HTTP subset
+
+* HTTP/1.1 and HTTP/1.0. Keep-alive is the default in 1.1. In 1.0 it is used only with `Connection: keep-alive`;
+* pipelining is sequential: leftover bytes stay in the buffer, the requests on one connection are handled one at a time, and responses go out in order;
+* bodies are framed by `Content-Length` only. `Expect: 100-continue` gets `100 Continue` or `413`;
+* responses always carry `Content-Length`. Any response after which the stream state is uncertain carries `Connection: close`.
+
+Limits (all configurable):
+
+| Limit | Value |
+|---|---|
+| request line + headers | 8 KB → `431` |
+| request body | 256 KB → `413` |
+| concurrent connections | 256; beyond it, `accept()` is not called |
+| receiving headers | 10 s from the first byte |
+| receiving the body | 30 s |
+| idle keep-alive | 30 s |
+| sending a response | 30 s, written non-blocking from a buffer |
+
+---
+
+# Observability
+
+* logs: one JSON line per event on `stderr`, written synchronously; one line per request (method, path, status, latency, `request_id`). The level can be lowered to "errors and slow requests only". Bodies, document text and the token are never logged;
+* `GET /stats` (needs the token): counts by route and status, a latency histogram, connections, documents, terms, tombstones, the log size and its share of garbage, the current generation, RSS, uptime;
+* configuration: a PHP file returning an array, with overrides from environment variables.
+
+---
+
+# Targets
+
+* corpus: up to 10,000 documents, about 4 KB on average, with far more searches than writes. The point is to see full-text search work, not to scale it;
+* RSS ≤ 512 MB on that corpus;
+* startup (full replay) ≤ 10 s on that corpus;
+* p99 search latency with 200 idle slow connections open is no worse than twice the latency without them;
+* no errors on any load profile that does not overload the service.
+
+Absolute latency and throughput targets are not set until a baseline exists.
