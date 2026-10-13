@@ -223,7 +223,11 @@ is and how long a document is, so long documents always win. Meanwhile the
 index has to keep the statistics BM25 needs anyway.
 
 Scores are BM25 per field with `k1 = 1.2` and `b = 0.75`, summed with
-weights `title = 2.0` and `body = 1.0`. Ties are broken by `id` in ascending
+weights `title = 2.0` and `body = 1.0`. The idf is Lucene's,
+`ln(1 + (N − df + 0.5) / (df + 0.5))`. Robertson's original goes negative
+for a term in more than half the documents, and under AND that term is in
+every match, so it would lower all of them. A query term may match in either
+field: `кабель usb` finds `кабель` in a title and `usb` in a body. Ties are broken by `id` in ascending
 byte order. Query terms are deduplicated and sorted before summing, because
 floating-point addition depends on the order of its operands.
 

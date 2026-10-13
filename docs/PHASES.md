@@ -14,7 +14,7 @@ of the index was measured before anything else (Phase 1).
 - [x] Phase 0 — Project Setup
 - [x] Phase 1 — Postings Prototype (during design)
 - [x] Phase 2 — Text Analysis
-- [ ] Phase 3 — Inverted Index and Ranking
+- [x] Phase 3 — Inverted Index and Ranking
 - [ ] Phase 4 — Log and Corpus
 - [ ] Phase 5 — HTTP Server
 - [ ] Phase 6 — API and Runtime
@@ -132,7 +132,7 @@ like any other.
 
 ---
 
-# Phase 3 — Inverted Index and Ranking
+# Phase 3 — Inverted Index and Ranking  ✅
 
 ## Goal
 
@@ -152,6 +152,33 @@ At least 10,000 random `put`/`delete`/`search` operations, on several fixed
 seeds, return the same ids, in the same order, with scores within ε of the
 oracle. The invariants hold after every operation, and a failing seed is
 printed.
+
+
+## Result
+
+`InvertedIndex` takes terms that are already analysed: analysis belongs to
+`Corpus`, which arrives in Phase 4. `put()` adds or replaces, `delete()`
+removes, `search()` returns a page of `SearchHit`s and the exact total, and
+`describe()` is what the diagnostic `GET /documents/{id}` will show. On
+10,000 synthetic documents it takes 291 MB (381 MB RSS). The worst search
+takes 14 ms.
+
+## Tests
+
+- [tests/Index/InvertedIndexAgainstOracleTest.php](../tests/Index/InvertedIndexAgainstOracleTest.php) —
+  5 seeds × 2,500 random puts, replacements, deletes and searches, compared
+  step by step with [tests/Support/NaiveSearch.php](../tests/Support/NaiveSearch.php),
+  which recomputes BM25 from scratch on every query. The invariants are
+  checked after every operation. The test was checked against injected bugs:
+  stale postings, an off-by-one in N, and a reversed tie-break. The first two
+  were caught at once. The reversed tie-break went unnoticed until a quarter
+  of the writes became exact copies of earlier documents, because random
+  documents almost never tie to the last bit. The test now also requires more
+  than 100 tied scores.
+- [tests/Index/InvertedIndexTest.php](../tests/Index/InvertedIndexTest.php) —
+  the behaviours by name: AND, terms split across fields, replacement,
+  deletion, the title weight, length normalisation, the tie-break, a
+  positive idf for a term in every document, paging, query order, `describe()`.
 
 ---
 

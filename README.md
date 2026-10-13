@@ -39,8 +39,9 @@ The goal is to build a simplified search service that exposes the fundamental id
 
 # Project Status
 
-**Phases 0–2 are done: the project skeleton, the postings benchmark (run
-during design), and text analysis with hand-written Snowball stemmers.** The documents above describe the planned
+**Phases 0–3 are done: the project skeleton, the postings benchmark (run
+during design), text analysis with hand-written Snowball stemmers, and the
+inverted index with BM25, checked against a naive oracle.** The documents above describe the planned
 service, and [PHASES.md](docs/PHASES.md) tracks what is built. The one known
 unknown is what `fsync()` guarantees through Docker Desktop on macOS. It is
 listed in [FAILURE-MODEL.md](docs/FAILURE-MODEL.md#open).

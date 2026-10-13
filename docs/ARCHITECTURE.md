@@ -115,7 +115,7 @@ durable. A failed append or fsync answers `503` and stops the process.
 POST /search  {query: "кабель usb", limit: 10, offset: 0}
   1. analyse      NFKC → lowercase → ё→е → tokens → stems; 0 terms → 422 empty_query
   2. order        deduplicate, sort terms; at most 32
-  3. intersect    postings, starting from the rarest term (AND)
+  3. intersect    postings, starting from the rarest term (AND); a term may be in either field
   4. score        Σ terms (sorted) Σ fields  w_field · BM25(tf, df, len, avglen)
   5. top-k        heap of size offset + limit (≤ 1000); ties by id ascending
   6. respond      [{id, score, source_version}], total = size of the intersection
@@ -141,16 +141,39 @@ The analyzer has a version. Changing it requires a full reindex.
 
 # The index
 
-* `term → postings` kept separately for `title` and `body`; a posting holds an internal document number and a term frequency;
-* statistics: document frequency per term, the length of each field of each document, the average length of each field, and the number of documents;
-* `id ↔ internal number`, the source version and generation per document, and the tombstones.
+`InvertedIndex` holds, in memory only:
+
+* `field → term → [docNum => tf]` for `title` and `body`. A document gets a small internal number when it is added, and a new one when it is replaced;
+* per field, each document's length and the total length, from which the average is derived. A term's document frequency is the size of its posting list, so it is never stored separately and cannot drift;
+* per field, each document's distinct terms joined into one string with `\0`. This is what a delete needs to find its postings. A full forward index (`doc → term → tf`) would roughly double the memory, and the frequencies are already in the postings;
+* `id ↔ internal number`.
+
+Source versions, generations and tombstones belong to `Corpus` (Phase 4), not
+to the index.
+
+A query matches a document when **every term appears in at least one
+field**, so `кабель usb` finds a product with `кабель` in its title and `usb`
+in its body. The candidates come from the rarest term's postings (title ∪
+body), and each one is checked against the other terms. Scoring:
+
+```text
+score    = Σ terms (sorted) Σ fields  w_f · idf_f(t) · tf·(k1+1) / (tf + k1·(1 − b + b·len/avglen))
+idf_f(t) = ln(1 + (N − df_f(t) + 0.5) / (df_f(t) + 0.5))
+```
+
+The idf is Lucene's variant, which never goes negative. Robertson's original
+drops below zero for a term in more than half the documents. Under AND such
+a term is in every match, so it would push all of them down together. The
+best `offset + limit` hits are kept in a heap (`TopHits`) whose top is the
+worst hit, and ties go to the smaller `id`.
 
 Invariants, checked after every operation in tests:
 
 * every posting points at a live document;
-* a term's document frequency equals the length of its posting list;
-* a document's term frequencies add up to its field lengths;
-* a replaced or deleted document leaves no postings behind.
+* no posting list is empty;
+* a document's term frequencies add up to its field lengths, and its term list names exactly the postings that mention it;
+* the total length of a field is the sum of its documents' lengths;
+* a replaced or deleted document leaves no postings, lengths or term lists behind.
 
 Postings are nested PHP arrays, `term → [docNum => tf]`, chosen by
 measurement. On 10,000 synthetic documents (about 4.2 million postings) the
@@ -159,6 +182,11 @@ per term) costs 0.3 ms. Packed binary strings were six times smaller, but
 deleting from them cost twenty times more, and the code is harder to read.
 At the target size the compact form buys nothing that is needed. The numbers
 are in [DECISIONS.md](DECISIONS.md#postings-are-plain-php-arrays).
+
+The finished `InvertedIndex`, with its lengths, term lists and id maps, was
+measured on the same corpus: 291 MB, 381 MB RSS. Deleting a document takes
+0.14 ms. The worst search, two terms found in almost every document, takes
+14 ms, because BM25 is computed for all 10,000 matches.
 
 ---
 
