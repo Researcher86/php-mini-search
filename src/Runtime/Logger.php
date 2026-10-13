@@ -11,7 +11,9 @@ use DateTimeImmutable;
  * Request bodies, document text and the token are never logged.
  *
  * At level "info" every request is a line; at "error" only failures (5xx) and
- * requests slower than the threshold are. The write is synchronous — a slow
+ * requests slower than the threshold are. Lifecycle events (replayed,
+ * listening, draining, stopped) are always written: they are rare, and an
+ * operator needs every one of them. The write is synchronous — a slow
  * stderr pipe blocks the loop, a risk documented in docs/FAILURE-MODEL.md
  * rather than solved here.
  */
@@ -52,9 +54,7 @@ final class Logger
      */
     public function info(string $event, array $context = []): void
     {
-        if ($this->level === self::INFO) {
-            $this->write(self::INFO, $event, $context);
-        }
+        $this->write(self::INFO, $event, $context);
     }
 
     /**

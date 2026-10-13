@@ -64,13 +64,18 @@ state and search results are exactly what they were before it: the index is
 only touched after the append and the fsync. Injecting `apply before append`
 fails this test, and only this test.
 
-**Test (Phase 7):** the real process on a full filesystem (`/dev/full` in
-Docker) stops with a non-zero code.
+**Test (Phase 7):** the real process with its data directory on a tmpfs
+filled to its last 150 KB. Writes go on until one fails. That request gets
+`503 storage_failure` and the process exits with code 1. After the space is
+freed and the service restarted, every acknowledged write is there, and the
+failed write, retried as the queue would retry it, is applied. If the API
+stops flagging the failure, the process keeps running and the test fails.
 
 ## The process is killed under write load
 
-**Test:** start the server as a subprocess, send a stream of `PUT`s, `kill -9`
-it at a random moment, restart it. Every acknowledged write must be present.
+**Test (Phase 7):** start the server as a subprocess, keep four connections
+sending `PUT`s, `kill -9` it at a random moment, restart it. Five runs
+acknowledge between 200 and 560 writes each. Every acknowledged write must be present.
 An unacknowledged write may or may not be: its fsync may have finished after
 the response was lost. No document the client never sent may appear.
 
@@ -85,7 +90,14 @@ The new log is written to a temporary file in the same directory, fsynced,
 renamed over the old log, and the directory is fsynced. At every step one
 complete log exists, the old one or the new one.
 
-**Test:** fail the operation at each step and run recovery.
+**Test:** a stray half-written temporary file next to an intact log, which
+is a crash at any point before the rename: the old log replays whole, and the
+next compaction overwrites the leftover. A crash after the rename leaves the
+new log, which is complete because it was fsynced before the rename. What
+cannot be tested here is power loss between the rename and the directory
+fsync. Then the rename itself may be lost, and the old log, still whole, is
+what remains. That needs a filesystem-level fault injector, which is out of
+scope.
 
 ## A crash in the middle of a reindex
 
@@ -164,6 +176,28 @@ the requests in flight within 10 seconds. There is nothing to flush: every
 acknowledged write is already fsynced.
 
 ---
+
+# Coverage
+
+Each scenario above, and where it is checked.
+
+| Scenario | Checked by |
+|---|---|
+| Power cut in the middle of an append | `LogTest`: a cut at every byte of the last record |
+| A checksum fails in the middle | `LogTest`, `CorpusTest` (damaged body and damaged length field) |
+| `fsync()` fails | `CorpusTest` (a log that refuses the write), `FullDiskTest` (the real process) |
+| Killed under write load | `KillDuringWritesTest`, 5 runs |
+| A crash in the middle of `compact` | `LogTest` (before the rename); after the rename, see above; power loss before the directory fsync is not tested |
+| A crash in the middle of a reindex | `CorpusTest`: a reindex survives a restart |
+| Jobs out of order, a delete overtaken, a delete before its `PUT` | `CorpusTest`, `ApiTest` |
+| A product created during a reindex | `CorpusTest` |
+| A delete never arrives | `CorpusTest`: a completed reindex removes what it did not touch |
+| Nobody ever filled the index | `CorpusTest`, `ApiTest`, `ServiceTest` |
+| Slow and idle clients | `ServerTest` (every timeout and the connection cap); the p99 benchmark is Phase 8 |
+| A huge or malformed request | `RequestParserTest`, `ServerTest` |
+| A blocked event loop | not tested as a failure: it is bounded by the query limits, and Phase 8 measures it |
+| `SIGTERM` | `ServiceTest` (drain, deadline, a second signal) |
+| Power loss on Linux | not tested: it needs a filesystem fault injector (`dm-flakey`, LazyFS), which is out of scope |
 
 # Open
 

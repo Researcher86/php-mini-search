@@ -18,7 +18,7 @@ of the index was measured before anything else (Phase 1).
 - [x] Phase 4 — Log and Corpus
 - [x] Phase 5 — HTTP Server
 - [x] Phase 6 — API and Runtime
-- [ ] Phase 7 — Reliability End to End
+- [x] Phase 7 — Reliability End to End
 - [ ] Phase 8 — Baseline Measurements
 - [ ] Phase 9 — Platform Integration
 - [ ] Phase 10 — Documentation and Release
@@ -351,7 +351,7 @@ ignored. Each one was caught.
 
 ---
 
-# Phase 7 — Reliability End to End
+# Phase 7 — Reliability End to End  ✅
 
 ## Goal
 
@@ -362,6 +362,31 @@ Prove the failure model on the real process.
 * `kill -9` under write load loses no acknowledged write across N runs;
 * a failing `fsync` stops the process, and the queue's retry recovers the write;
 * every scenario in [FAILURE-MODEL.md](FAILURE-MODEL.md) has a test, or a written reason it has none.
+
+## Result
+
+Two tests run against the real process, and the failure model now ends with
+a coverage table. It names the test behind every scenario, or the reason a
+scenario has none.
+
+## Tests
+
+- [tests/Reliability/KillDuringWritesTest.php](../tests/Reliability/KillDuringWritesTest.php) —
+  four connections keep `PUT`s in flight and `SIGKILL` lands at a random
+  moment. Five runs acknowledge between 197 and 557 writes each. After a
+  restart every acknowledged write is there, at its version or a newer one
+  that was sent, and nothing that was never sent appears. If one write in ten
+  skips the log, 4 of the 5 runs fail.
+- [tests/Reliability/FullDiskTest.php](../tests/Reliability/FullDiskTest.php) —
+  the data directory on a tmpfs filled to its last 150 KB: `503
+  storage_failure`, exit code 1, no acknowledged write lost, and the retried
+  write applied after a restart. If the API stops flagging the failure, the
+  process keeps running and the test fails. The test is skipped where no
+  small tmpfs exists, so it never fills a real disk.
+
+Building these tests found one bug: at log level `error` the logger also
+suppressed the lifecycle lines (`listening`, `stopped`) that operators and
+tests depend on. Only request lines are filtered by level now.
 
 ---
 

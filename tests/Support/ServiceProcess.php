@@ -136,7 +136,8 @@ final class ServiceProcess
     }
 
     /**
-     * Waits for the process to exit and returns its exit code.
+     * Waits for the process to exit and returns its exit code; a process
+     * ended by a signal reports 128 + the signal, as a shell does.
      */
     public function wait(float $timeout = 10.0): int
     {
@@ -145,7 +146,7 @@ final class ServiceProcess
             $this->drainStderr();
             $status = proc_get_status($this->process);
             if (!$status['running']) {
-                $this->exitCode = $status['exitcode'];
+                $this->exitCode = $status['signaled'] ? 128 + $status['termsig'] : $status['exitcode'];
                 break;
             }
             if (microtime(true) > $deadline) {
