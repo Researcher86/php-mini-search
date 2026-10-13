@@ -15,7 +15,7 @@ of the index was measured before anything else (Phase 1).
 - [x] Phase 1 — Postings Prototype (during design)
 - [x] Phase 2 — Text Analysis
 - [x] Phase 3 — Inverted Index and Ranking
-- [ ] Phase 4 — Log and Corpus
+- [x] Phase 4 — Log and Corpus
 - [ ] Phase 5 — HTTP Server
 - [ ] Phase 6 — API and Runtime
 - [ ] Phase 7 — Reliability End to End
@@ -182,7 +182,7 @@ takes 14 ms.
 
 ---
 
-# Phase 4 — Log and Corpus
+# Phase 4 — Log and Corpus  ✅
 
 ## Goal
 
@@ -203,6 +203,48 @@ Durable writes, ordered by source version, behind one deep module.
 * a reindex removes the documents it did not touch;
 * replaying a compacted log yields the same `Corpus` as replaying the original: documents, source versions, generations, tombstones, `reindex_required`;
 * a compaction interrupted at each step recovers.
+
+## Result
+
+`Storage` is the bytes: `LogFormat` frames records, `LogScanner` reads and
+decides between a torn tail and damage without writing anything, `Log` takes
+the lock, repairs, appends with `fflush` + `fsync`, and rewrites atomically
+for compaction. `Durable` holds the verified fsync recipe.
+
+`Corpus` owns the log and the index together. Every write goes check →
+analyse → append → fsync → apply. Replay and live writes share the same
+`apply()`, so a restart reproduces the state by construction. `bin/mini-search
+check` and `compact` work. On a log of 51 records holding one document's
+history, compaction went from 43,846 bytes to 1,043.
+
+Two decisions were taken while building this phase, and both are recorded in
+[DECISIONS.md](DECISIONS.md) and [API.md](API.md):
+
+* tombstones are never cleared. Clearing them when a reindex completed would let a retried stale job resurrect a deleted product;
+* a stale `PUT` from a reindex confirms its document with a small `mark` record instead of a second copy of the text.
+
+## Tests
+
+- [tests/Storage/LogTest.php](../tests/Storage/LogTest.php) — a torn last
+  record cut at every byte, a bad last checksum, a damaged body and a damaged
+  length field in the middle, a header cut off while being created, a file
+  that is not a log, scanning without side effects, atomic rewrite and an
+  interrupted one.
+- [tests/Corpus/CorpusTest.php](../tests/Corpus/CorpusTest.php) — the first
+  start, an empty reindex, stale writes, resurrection, a delete before its
+  put, a reindex removing untouched documents, a document created during a
+  reindex, a `mark` surviving a restart, cancellation, a reindex surviving a
+  restart, full state equality after a restart, a damaged log, query
+  rejection, the lock, and a write the log rejected.
+- [tests/Corpus/CompactionTest.php](../tests/Corpus/CompactionTest.php) — 8
+  random histories with puts, stale puts, deletes and reindexes that are
+  completed, cancelled or left open. Each compacted log replays to an
+  identical state, and compacting twice changes nothing.
+
+The tests were checked against injected bugs: compaction dropping
+tombstones, compaction dropping the checkpoint, a `mark` kept only in
+memory, and applying before appending. The last one was invisible until the
+failing-log test was added.
 
 ---
 

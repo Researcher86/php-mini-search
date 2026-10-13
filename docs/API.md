@@ -129,11 +129,13 @@ cancelled; `cancelled_generation` is `null` if there was none.
 ## `POST /reindex/{generation}/complete`
 
 ```json
-{"generation": 6, "removed": 12, "tombstones_cleared": 3}
+{"generation": 6, "removed": 12}
 ```
 
-Removes every live document the generation did not mark and clears every
-tombstone, then leaves `reindex_required` if the service was in it. A
+Removes every live document the generation did not mark, leaving a
+tombstone for each, then leaves `reindex_required` if the service was in it.
+Tombstones are never cleared: a stale job can still arrive after the reindex
+(docs/DECISIONS.md). A
 generation that is not open (already completed, cancelled, or unknown)
 answers `409 generation_not_open`.
 

@@ -132,9 +132,14 @@ The earlier design used `If-Match` against a version counter owned by the
 service. That protects two people editing the same document. It does nothing
 about a job that is delivered late.
 
-What it costs: tombstones accumulate. They are cleared when a full reindex
-completes, because at that point the source of truth has been replayed in
-full.
+What it costs: tombstones accumulate, and they are never cleared. Clearing
+them when a full reindex completes was the first plan, on the grounds that the
+source of truth had just been replayed in full. But a queue can deliver a stale
+job after that. A worker that crashed keeps its job until its lease expires,
+then the job is retried, and with the tombstone gone that retry would bring a
+deleted product back. One `id → version` entry per deleted product is cheap at
+10,000 documents. A document removed by a completed reindex gets a tombstone
+too, for the same reason. Compaction carries every tombstone over.
 
 # Full reindex in place, by generation
 

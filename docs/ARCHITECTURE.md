@@ -196,7 +196,7 @@ One append-only log is the only durable state:
 
 * one file, `data/search.log`, starting with the magic `MSLOG` and format version `1`;
 * each record is `[uint32 body length][uint32 crc32 of body][JSON body]`, packed with `pack('NN')` (big-endian). The length and checksum frame the record. The body stays readable;
-* operations: `put` (`id`, `source_version`, `generation` when part of a reindex, `title`, `body`), `delete` (`id`, `source_version`), `reindex-begin`, `reindex-complete` (`generation`), and `checkpoint`, written only by compaction;
+* operations: `put` (`id`, `source_version`, `generation` when part of a reindex, `title`, `body`), `delete` (`id`, `source_version`), `mark` (`id`, `generation`: a stale `PUT` from a reindex confirming a document without rewriting it), `reindex-begin`, `reindex-complete` (`generation`), and `checkpoint` (`next_generation`, `open_generation`, `last_completed_generation`), written only by compaction;
 * the log holds raw text, and replay analyses it again. The analyzer version is therefore not part of the format.
 
 A torn tail and corruption are told apart like this:
@@ -204,6 +204,12 @@ A torn tail and corruption are told apart like this:
 * a length above 256 KB is corruption. No valid record is that large;
 * only the **last** record may be short, or fail its checksum, and then it is a torn tail;
 * a checksum failure anywhere else is corruption.
+
+The log is `<data>/search.log`, where `<data>` is `--data=DIR` or `./data`.
+One process at a time holds it: the service, `compact` or `check`. An
+exclusive `flock()` on `<data>/search.log.lock` is taken before anything is
+read or repaired. It is a separate file because compaction renames a new log
+over the old one, and a lock on the old file would not cover it.
 
 At startup:
 

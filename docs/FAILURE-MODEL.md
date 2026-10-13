@@ -58,7 +58,14 @@ the data reaching the disk. The current client gets `503` and the process
 exits with a non-zero code. On restart, replay rebuilds from what is actually
 on disk, and the job that got `503` is retried by the queue.
 
-**Test:** a log on a full filesystem (`/dev/full` in Docker).
+**Test (Phase 4):** the log's handle is swapped for a read-only one, so the
+next write fails the way a full disk would. The write throws, and the corpus
+state and search results are exactly what they were before it: the index is
+only touched after the append and the fsync. Injecting `apply before append`
+fails this test, and only this test.
+
+**Test (Phase 7):** the real process on a full filesystem (`/dev/full` in
+Docker) stops with a non-zero code.
 
 ## The process is killed under write load
 

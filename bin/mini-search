@@ -10,13 +10,18 @@ declare(strict_types=1);
  * The platform starts this file as `vendor/bin/mini-search serve`, so it has
  * no extension and is listed under "bin" in composer.json.
  *
- * Phase 0 only refuses to run without the required extensions; the commands
- * arrive with the phases that build them (docs/PHASES.md).
+ * The log lives in `<data>/search.log`, where <data> is `--data=DIR` or
+ * `./data`. `check` and `compact` take the same lock as the service, so they
+ * refuse to run while it is up.
  */
 
 require __DIR__ . '/bootstrap.php';
 
+use PhpMiniSearch\Corpus\Compaction;
 use PhpMiniSearch\Runtime\RequiredExtensions;
+use PhpMiniSearch\Storage\Log;
+use PhpMiniSearch\Storage\LogScan;
+use PhpMiniSearch\Storage\StorageFailure;
 
 $missing = (new RequiredExtensions())->missing();
 
@@ -28,18 +33,49 @@ if ($missing !== []) {
     exit(1);
 }
 
-$command = $argv[1] ?? null;
-
-$planned = [
-    'serve' => 'Phase 6',
-    'compact' => 'Phase 4',
-    'check' => 'Phase 4',
-];
-
-if (!is_string($command) || !isset($planned[$command])) {
-    fwrite(STDERR, "Usage: mini-search <serve|compact|check>\n");
-    exit(2);
+// getopt() stops at the first non-option, so it would never see a --data
+// written after the command; the arguments are few enough to read by hand.
+$command = null;
+$data = getcwd() . '/data';
+$arguments = is_array($_SERVER['argv'] ?? null) ? array_slice($_SERVER['argv'], 1) : [];
+foreach (array_filter($arguments, 'is_string') as $argument) {
+    if (str_starts_with($argument, '--data=')) {
+        $data = substr($argument, strlen('--data='));
+    } elseif ($command === null) {
+        $command = $argument;
+    }
 }
+$log = rtrim($data, '/') . '/search.log';
 
-fwrite(STDERR, "mini-search {$command}: not built yet ({$planned[$command]} in docs/PHASES.md).\n");
-exit(1);
+try {
+    switch ($command) {
+        case 'check':
+            $scan = Log::inspect($log);
+            printf(
+                "%s: %s, %d records, %d of %d bytes valid%s\n",
+                $log,
+                $scan->status,
+                $scan->records,
+                $scan->validBytes,
+                $scan->fileBytes,
+                $scan->reason === null ? '' : " ({$scan->reason})",
+            );
+            exit($scan->status === LogScan::DAMAGED ? 1 : 0);
+
+        case 'compact':
+            $sizes = Compaction::run($log);
+            printf("%s: %d bytes → %d bytes\n", $log, $sizes['bytes_before'], $sizes['bytes_after']);
+            exit(0);
+
+        case 'serve':
+            fwrite(STDERR, "mini-search serve: not built yet (Phase 6 in docs/PHASES.md).\n");
+            exit(1);
+
+        default:
+            fwrite(STDERR, "Usage: mini-search <serve|compact|check> [--data=DIR]\n");
+            exit(2);
+    }
+} catch (StorageFailure $failure) {
+    fwrite(STDERR, "mini-search {$command}: {$failure->getMessage()}\n");
+    exit(1);
+}
