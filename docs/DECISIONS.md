@@ -365,8 +365,8 @@ means, deliberately smaller than the levels that teach them.
 
 # Postings are plain PHP arrays
 
-The first target was 100,000 documents and 1 GB. A throwaway benchmark
-(`.scratch/php-mini-search-v1/prototypes/postings/`) measured three
+The first target was 100,000 documents and 1 GB. A throwaway benchmark,
+deleted once it had answered, measured three
 representations on a synthetic Zipf corpus with about 425 postings per
 document:
 

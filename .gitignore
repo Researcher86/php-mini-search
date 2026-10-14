@@ -36,8 +36,5 @@ composer.phar
 # Service data (the log)
 /data/
 
-# Design scratch space (wayfinder map, research, prototypes)
-/.scratch/
-
 # Benchmark corpora (Wikipedia text is CC BY-SA; downloaded, never committed)
 /benchmarks/data/

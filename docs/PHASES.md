@@ -84,7 +84,7 @@ Choose how postings are represented, by measuring instead of guessing.
 
 Nested arrays, at 319 MB for 10,000 documents. The numbers and the reasoning
 are in [DECISIONS.md](DECISIONS.md#postings-are-plain-php-arrays). The
-prototype stays out of the codebase, in `.scratch/`.
+prototype was thrown away once it had answered.
 
 ---
 
