@@ -75,7 +75,7 @@ stops flagging the failure, the process keeps running and the test fails.
 
 **Test (Phase 7):** start the server as a subprocess, keep four connections
 sending `PUT`s, `kill -9` it at a random moment, restart it. Five runs
-acknowledge between 200 and 560 writes each. Every acknowledged write must be present.
+acknowledge between 197 and 557 writes each. Every acknowledged write must be present.
 An unacknowledged write may or may not be: its fsync may have finished after
 the response was lost. No document the client never sent may appear.
 
@@ -193,9 +193,9 @@ Each scenario above, and where it is checked.
 | A product created during a reindex | `CorpusTest` |
 | A delete never arrives | `CorpusTest`: a completed reindex removes what it did not touch |
 | Nobody ever filled the index | `CorpusTest`, `ApiTest`, `ServiceTest` |
-| Slow and idle clients | `ServerTest` (every timeout and the connection cap); the p99 benchmark is Phase 8 |
+| Slow and idle clients | `ServerTest` (every timeout and the connection cap); and the `slow` benchmark profile: p99 63.4 against 66.3 ms on synthetic text, 6.3 against 6.0 ms on Wikipedia ([BENCHMARKS.md](BENCHMARKS.md)) |
 | A huge or malformed request | `RequestParserTest`, `ServerTest` |
-| A blocked event loop | not tested as a failure: it is bounded by the query limits, and Phase 8 measures it |
+| A blocked event loop | not tested as a failure: it is bounded by the query limits, and the worst search measured 14 ms ([BENCHMARKS.md](BENCHMARKS.md)) |
 | `SIGTERM` | `ServiceTest` (drain, deadline, a second signal) |
 | Power loss on Linux | not tested: it needs a filesystem fault injector (`dm-flakey`, LazyFS), which is out of scope |
 

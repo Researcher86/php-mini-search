@@ -1,6 +1,6 @@
 # PHP Mini Search
 
-**[🧪 PHP Systems Lab](https://github.com/Researcher86/php-systems-lab)** · Level 8 of 9 (planned) · ← [`php-mini-database`](https://github.com/Researcher86/php-mini-database) · [`php-systems-platform`](https://github.com/Researcher86/php-systems-platform) →
+**[🧪 PHP Systems Lab](https://github.com/Researcher86/php-systems-lab)** · Level 8 of 9 · ← [`php-mini-database`](https://github.com/Researcher86/php-mini-database) · [`php-systems-platform`](https://github.com/Researcher86/php-systems-platform) →
 
 > An educational full-text search service written in PHP.
 
@@ -72,17 +72,20 @@ and a second Ctrl-C forces it down. A restart replays the log, and
 
 # Project Status
 
-**Phases 0–9 are done: the project skeleton, the postings benchmark (run
-during design), text analysis with hand-written Snowball stemmers, the
-inverted index with BM25 checked against a naive oracle, the durable log
-with `Corpus`, replay and offline compaction, the event-driven HTTP server,
-the API with its runtime, and the failure model proven on the real process
-with `kill -9` and a full disk, and a measured baseline: on 10,000 Wikipedia
-articles, 10,575 searches/s at p99 6 ms, a 6.7 s startup, 239 MB peak RSS.
-`php-systems-platform` already searches its products through it.** The documents above describe the planned
-service, and [PHASES.md](docs/PHASES.md) tracks what is built. The one known
-unknown is what `fsync()` guarantees through Docker Desktop on macOS. It is
-listed in [FAILURE-MODEL.md](docs/FAILURE-MODEL.md#open).
+**Released as `v1.0.0`.** All eleven phases of [PHASES.md](docs/PHASES.md)
+are done:
+
+* text analysis with hand-written Snowball stemmers that match every one of the 92,434 reference pairs;
+* an inverted index with BM25, checked step by step against a naive oracle;
+* a checksummed append-only log with replay and offline compaction;
+* an event-driven HTTP server and the API;
+* a failure model proven on the real process with `kill -9` and a full disk;
+* a measured baseline: on 10,000 Wikipedia articles, 10,575 searches/s at p99 6 ms, a 6.7 s startup and 239 MB peak RSS.
+
+`php-systems-platform` searches its products through it.
+
+The one known unknown is what `fsync()` guarantees through Docker Desktop on
+macOS. It is listed in [FAILURE-MODEL.md](docs/FAILURE-MODEL.md#open).
 
 # Why?
 
@@ -148,9 +151,6 @@ by being read in one and reimplemented in the next. Levels 1–8 do not depend
 on each other as packages. Only [`php-systems-platform`](https://github.com/Researcher86/php-systems-platform) requires the
 six components (worker pool, job queue, cache, HTTP server, database, search)
 through Composer and runs them together as one system.
-
-Until `php-mini-search` v1.0.0 is released, this table describes the planned
-lab: the other repositories still list eight levels.
 
 ## How this project relates
 

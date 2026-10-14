@@ -1,9 +1,9 @@
-# PHP Mini Search — How It Will Be Built
+# PHP Mini Search — How It Was Built
 
-The service is built in phases. Each phase ends with something that works
-and is tested, and each one has a definition of done that can be measured.
-Nothing is built yet: this file is the plan, and it becomes the record as
-phases are completed.
+The service was built in phases. Each phase ended with something that worked
+and was tested, against a definition of done that could be measured. Each
+phase keeps its plan (Goal, Tasks, Definition of Done) next to its record
+(Result, Tests), so what was intended and what happened can be compared.
 
 The search engine is built bottom-up (analysis, index, storage) before the
 network layer, because it can be tested without a server. The memory cost
@@ -21,7 +21,7 @@ of the index was measured before anything else (Phase 1).
 - [x] Phase 7 — Reliability End to End
 - [x] Phase 8 — Baseline Measurements
 - [x] Phase 9 — Platform Integration
-- [ ] Phase 10 — Documentation and Release
+- [x] Phase 10 — Documentation and Release
 
 ---
 
@@ -50,9 +50,10 @@ make build → make install → make test → make analyse → make format-check
 
 All of them run inside the same `php:8.5-cli` image, locally and in CI.
 PHPStan runs at `level: max` over `src`, `bin` and `tests`, including the
-extensionless `bin/mini-search`, which has to be listed by name. `bin/mini-search` refuses to start without
-`intl`, `mbstring` or `pcntl`, and names the reason for each. Its commands
-answer "not built yet" with the phase that builds them.
+extensionless `bin/mini-search`, which has to be listed by name.
+`bin/mini-search` refuses to start without `intl`, `mbstring` or `pcntl`,
+and names the reason for each. At the end of this phase its commands
+answered "not built yet" with the phase that would build them.
 
 ## Tests
 
@@ -398,7 +399,7 @@ Measure before optimising.
 
 ## Tasks
 
-* corpora: a synthetic one (CI) and a 10,000-article slice of Russian and English Wikipedia (downloaded by a script, never committed);
+* corpora: a synthetic one and a 10,000-article slice of Russian and English Wikipedia (downloaded by a script, never committed);
 * profiles: search only, write only, 95/5, search alongside 200 slow connections;
 * `wrk` for throughput, and a PHP script for slow clients.
 
@@ -483,7 +484,7 @@ mirrors the existing `CACHE_ENABLED`, runs the demo without search.
 
 ---
 
-# Phase 10 — Documentation and Release
+# Phase 10 — Documentation and Release  ✅
 
 ## Tasks
 
@@ -502,3 +503,23 @@ Join the lab, as one consistent change across every repository:
 * the service can be started reproducibly from the README;
 * every repository in the lab lists nine levels consistently;
 * the release is tagged `v1.0.0`.
+
+## Result
+
+The documentation was audited against the code before the release. A
+read-only pass checked every factual claim and found about 25 drifts. Most
+were left over from the plan: "will be built", a Corpus method named `get`
+that is called `describe`, a shadow-index estimate still sized for 100,000
+documents, and the old MediaWiki source of the Wikipedia slice. One was a
+real bug: `make bench-wikipedia` failed on a fresh clone, because nothing
+created `benchmarks/data/`. All of them were fixed. The README demo was
+replayed verbatim and still matches.
+
+The lab moved from eight levels to nine in one change across every
+repository. That covered the navigation lines and the shared table,
+`php-mini-database`'s "→" link, and a new entry in its "How this project
+relates". In the hub it covered the counts, the four diagrams, a new
+Projects section, Level 8 of the learning path, and the narrowed Out of
+Scope. In `php-systems-platform` it covered Level 9, its component table,
+product search in its README, and the pin raised from `0.9.0` to `1.0.0`.
+

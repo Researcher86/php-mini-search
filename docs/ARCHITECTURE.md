@@ -1,8 +1,8 @@
 # Architecture
 
 How `php-mini-search` is put together, traced through one write and one
-search. This is the planned design. The memory figures were measured with a
-throwaway benchmark, and everything else is still to be measured in Phase 8.
+search. The numbers quoted here were measured; [BENCHMARKS.md](BENCHMARKS.md)
+has the runs they come from.
 
 For why each choice was made, see [DECISIONS.md](DECISIONS.md). For the HTTP
 contract, see [API.md](API.md).
@@ -77,7 +77,7 @@ bin/mini-search (serve | compact | check)
                   └─ Storage  — log format, checksums, append + fsync, recovery, compaction
 ```
 
-* `Corpus` is the deep module. Its interface is `put`, `delete`, `get`, `search`, `beginReindex`, `completeReindex` and `stats`. Nothing else touches the log and the index together;
+* `Corpus` is the deep module. Its interface is `open`, `put`, `delete`, `describe`, `search`, `reindexRequired`, `beginReindex`, `completeReindex`, `stats` and `close`; `recovery`, `state` and `compactedRecords` serve startup logging, tests and compaction. Nothing else touches the log and the index together;
 * `Api` sees only `Corpus`, and `Http` knows nothing about search;
 * ranking lives inside `Index`. It moves out only if BM25F arrives;
 * `Http` is generic but minimal: one handler interface, no middleware.
@@ -198,7 +198,7 @@ One append-only log is the only durable state:
 
 * one file, `data/search.log`, starting with the magic `MSLOG` and format version `1`;
 * each record is `[uint32 body length][uint32 crc32 of body][JSON body]`, packed with `pack('NN')` (big-endian). The length and checksum frame the record. The body stays readable;
-* operations: `put` (`id`, `source_version`, `generation` when part of a reindex, `title`, `body`), `delete` (`id`, `source_version`), `mark` (`id`, `generation`: a stale `PUT` from a reindex confirming a document without rewriting it), `reindex-begin`, `reindex-complete` (`generation`), and `checkpoint` (`next_generation`, `open_generation`, `last_completed_generation`), written only by compaction;
+* operations: `put` (`id`, `source_version`, `generation` — null unless a reindex is open — `title`, `body`), `delete` (`id`, `source_version`), `mark` (`id`, `generation`: a stale `PUT` from a reindex confirming a document without rewriting it), `reindex-begin`, `reindex-complete` (`generation`), and `checkpoint` (`next_generation`, `open_generation`, `last_completed_generation`), written only by compaction;
 * the log holds raw text, and replay analyses it again. The analyzer version is therefore not part of the format.
 
 A torn tail and corruption are told apart like this:
@@ -207,7 +207,9 @@ A torn tail and corruption are told apart like this:
 * only the **last** record may be short, or fail its checksum, and then it is a torn tail;
 * a checksum failure anywhere else is corruption.
 
-The log is `<data>/search.log`, where `<data>` is `--data=DIR` or `./data`.
+The log is `<data>/search.log`. For `serve`, `<data>` is `--data=DIR`, then
+`MINI_SEARCH_DATA_DIR` or the config file's `data_dir`, then `./data`; `check`
+and `compact` take `--data=DIR` or `./data`.
 One process at a time holds it: the service, `compact` or `check`. An
 exclusive `flock()` on `<data>/search.log.lock` is taken before anything is
 read or repaired. It is a separate file because compaction renames a new log
@@ -254,10 +256,10 @@ A `stream_select()` interrupted by a signal is not an error.
 * bodies are framed by `Content-Length` only. `Expect: 100-continue` gets `100 Continue` or `413`;
 * lines end in CRLF: a bare CR or LF, a NUL or a folded header line is `400`. Only origin-form targets (`/path`) are accepted, and HTTP/1.1 requires `Host`. A repeated `Content-Length` is `400` even when both values agree. No `Content-Length` means an empty body, as RFC 9112 says;
 * the next pipelined request is parsed only after the previous response is fully written. While a whole request is buffered, the socket is not read. This keeps responses in order and is the backpressure: a client that pipelines without reading fills its own socket buffer;
-* a handler that throws becomes `500 internal_error`. `HEAD` gets headers with the length of the body, but no body;
+* a handler that throws becomes `500 internal_error`. `Http` answers `HEAD` with headers and no body, but no API route allows `HEAD`, so in practice it is a `405`;
 * responses always carry `Content-Length`. Any response after which the stream state is uncertain carries `Connection: close`.
 
-Limits (all configurable):
+Limits (the timeouts and the connection cap are configurable; the head and body sizes are constructor arguments of `ServerConfig`):
 
 | Limit | Value |
 |---|---|
@@ -274,7 +276,7 @@ Limits (all configurable):
 # Observability
 
 * logs: one JSON line per event on `stderr`, written synchronously; one line per request (method, path, status, latency, `request_id`). The level can be lowered to "errors and slow requests only". Bodies, document text and the token are never logged;
-* `GET /stats` (needs the token): counts by route and status, a latency histogram, connections, documents, terms, tombstones, the log size and its share of garbage, the current generation, RSS, uptime;
+* `GET /stats` (needs the token): counts by route and status, latency p50/p95/p99 over the last 1,024 requests, connections, documents, terms, tombstones, the log size and its share of garbage, the open and the last completed generation, RSS, uptime;
 * configuration: a PHP file returning an array, with overrides from environment variables.
 
 ---

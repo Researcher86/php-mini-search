@@ -98,7 +98,7 @@ An id the service has never seen answers `404 document_not_found`.
 
 | Field | Rule |
 |---|---|
-| `query` | string, required; 1–32 terms after analysis |
+| `query` | string, required, ≤ 64 KB; 1–32 terms after analysis |
 | `limit` | 1–100, default 10 |
 | `offset` | ≥ 0, default 0; `offset + limit ≤ 1000` |
 
@@ -146,7 +146,7 @@ answers `409 generation_not_open`.
 ```text
 GET /health/live   → 200 {"status": "ok"}
 GET /health/ready  → 200 {"status": "ready"}
-                   → 503 {"status": "reindex_required", "reason": "first_start" | "log_corrupted"}
+                   → 503 {"status": "reindex_required", "reason": "first_start" | "log_corrupted"}, Retry-After: 10
 ```
 
 `GET /stats`:
@@ -156,7 +156,7 @@ GET /health/ready  → 200 {"status": "ready"}
  "open_generation": null, "last_completed_generation": 6,
  "log": {"bytes": 52428800, "garbage_ratio": 0.18},
  "connections": 3,
- "requests": {"POST /search 200": 1520, "PUT /documents 200": 88},
+ "requests": {"POST /search 200": 1520, "PUT /documents/{id} 200": 88},
  "latency_ms": {"p50": 1.2, "p95": 4.8, "p99": 9.1},
  "rss_bytes": 385875968, "uptime_s": 86400}
 ```

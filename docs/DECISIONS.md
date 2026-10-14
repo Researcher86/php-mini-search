@@ -1,13 +1,16 @@
 # Decisions
 
 Why this project is the way it is: what was chosen, what was rejected, and
-which earlier choices were overturned before a line of code was written.
+which earlier choices were overturned.
 
-Every decision here came out of a design interview held before
-implementation. Some were reversed during that interview; they stay in the
-table so the reasoning that killed them is not lost.
+Most decisions here came out of a design interview held before
+implementation; some were reversed during that interview. The rest were made
+while building, when a measurement or a live run proved the plan wrong:
+the stem cache, the empty body without `Content-Length`, the tombstones that
+are never cleared. Overturned choices stay in the table so the reasoning that
+killed them is not lost.
 
-For the order in which the service will be built, see
+For the order in which the service was built, see
 [PHASES.md](PHASES.md). For how the pieces fit together, see
 [ARCHITECTURE.md](ARCHITECTURE.md). For what breaks and what is not
 guaranteed, see [FAILURE-MODEL.md](FAILURE-MODEL.md).
@@ -76,8 +79,9 @@ heals (the platform's `docs/failure-handling.md`).
 
 # An append-only log is the only durable state
 
-Every accepted write (`put`, `delete`, the start and end of a reindex) is
-appended to one checksummed log. The in-memory index is always rebuilt from
+Every accepted write (`put`, `delete`, `mark`, the start and end of a
+reindex, and the `checkpoint` that starts a compacted log) is appended to one
+checksummed log. The in-memory index is always rebuilt from
 that log by replaying it at startup.
 
 The alternative was a Lucene-style on-disk segmented index. It would load
@@ -164,7 +168,7 @@ a new reindex cancels one that never completed.
 
 The rejected alternative was a shadow index with an atomic swap, as with
 aliases in Elasticsearch. Searches would never see a half-finished reindex,
-but two indexes in memory would need about 2 GB, double the budget.
+but two indexes in memory would need about 600 MB, over the 512 MB budget.
 
 Ordinary indexing jobs keep running during a reindex, and that creates a
 trap. A product created after the reindex has already passed its key would
@@ -262,7 +266,7 @@ generation, field lengths and terms. There is no listing endpoint.
 The only client is the platform, and it sends `Content-Length`.
 
 * Any `Transfer-Encoding` is rejected with `501`;
-* no `Content-Length` means an empty body, as RFC 9112 says. The first plan answered `POST`/`PUT` without one with `411`, but `POST /reindex` has no body, and `curl -X POST` and many client libraries send such a request with no length at all. That plan was dropped when the first live run of the service hit it. A `PUT` with no body now fails JSON validation (`400 invalid_json`) instead;
+* no `Content-Length` means an empty body, as RFC 9112 says. The first plan answered `POST`/`PUT` without one with `411`, but `POST /reindex` has no body, and `curl -X POST` and many client libraries send such a request with no length at all. That plan was dropped when the first live run of the service hit it. A `PUT` with no body now fails JSON validation (`400 invalid_json`), or `415` if it also lacks `Content-Type: application/json`;
 * conflicting, duplicated or non-canonical lengths get `400`, and the connection is closed, because the end of the request can no longer be known.
 
 `Expect: 100-continue` is supported, so an oversized body is refused before
