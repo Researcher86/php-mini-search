@@ -115,6 +115,23 @@ final class LogTest extends TestCase
         $this->assertSame(LogScan::DAMAGED, $scan->status);
     }
 
+    /**
+     * A damaged low byte keeps the length under MAX_BODY, so the size alone
+     * cannot give it away: what gives it away are the later records it claims.
+     */
+    public function testADamagedLengthWithinTheLimitIsDamageNotATornTail(): void
+    {
+        $this->write([['op' => 'put', 'id' => 'a'], ['op' => 'put', 'id' => 'b'], ['op' => 'put', 'id' => 'c']]);
+        $lowByteOfTheLengthOfB = strlen(LogFormat::header()) + strlen(LogFormat::frame(['op' => 'put', 'id' => 'a'])) + 3;
+        $this->corruptByteAt($lowByteOfTheLengthOfB);
+
+        $log = Log::open($this->path, fn () => null);
+        $log->close();
+
+        $this->assertSame(LogScan::DAMAGED, $log->recovery()->status);
+        $this->assertNotNull($log->damagedCopy());
+    }
+
     public function testAHeaderCutOffWhileBeingCreatedCountsAsNoLog(): void
     {
         mkdir($this->directory);

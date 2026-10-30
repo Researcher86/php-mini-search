@@ -204,6 +204,7 @@ One append-only log is the only durable state:
 A torn tail and corruption are told apart like this:
 
 * a length above 256 KB is corruption. No valid record is that large;
+* a length whose claimed bytes contain a NUL is corruption: JSON bodies have none, record headers always do, so those bytes are later records;
 * only the **last** record may be short, or fail its checksum, and then it is a torn tail;
 * a checksum failure anywhere else is corruption.
 

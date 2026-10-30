@@ -20,6 +20,9 @@ use Closure;
  *    length field in the middle could otherwise point past the end of the
  *    file and pass for a torn tail, and cutting there would silently drop
  *    every acknowledged record after it;
+ *  - a length within MAX_BODY that claims the headers of later records →
+ *    damage too (see holdsAFrame()). Only a damaged length in the last
+ *    record still reads as a torn tail: nothing after it tells them apart;
  *  - a checksum failure before the last record, or a valid checksum around a
  *    body that is not a JSON object → damage.
  *
@@ -88,12 +91,14 @@ final class LogScanner
 
             $end = $offset + LogFormat::FRAME_HEADER + $length;
             if ($end > $size) {
-                return new LogScan(LogScan::TORN_TAIL, $records, $offset, $size, "record at byte {$offset} is cut short");
+                return self::holdsAFrame(self::bytes($handle, $size - $offset - LogFormat::FRAME_HEADER))
+                    ? new LogScan(LogScan::DAMAGED, $records, $offset, $size, "record at byte {$offset} claims {$length} bytes, past the records after it")
+                    : new LogScan(LogScan::TORN_TAIL, $records, $offset, $size, "record at byte {$offset} is cut short");
             }
 
             $body = self::bytes($handle, $length);
             if (crc32($body) !== $checksum) {
-                return $end === $size
+                return $end === $size && !self::holdsAFrame($body)
                     ? new LogScan(LogScan::TORN_TAIL, $records, $offset, $size, "last record at byte {$offset} fails its checksum")
                     : new LogScan(LogScan::DAMAGED, $records, $offset, $size, "record at byte {$offset} fails its checksum");
             }
@@ -109,6 +114,17 @@ final class LogScanner
         }
 
         return new LogScan(LogScan::CLEAN, $records, $offset, $size);
+    }
+
+    /**
+     * A body is json_encode() output, which never has a raw NUL byte, while
+     * every frame header has one: a length of at most MAX_BODY leaves its
+     * first byte zero. So bytes claimed by one record that contain a NUL hold
+     * the start of another record, and the length that claimed them is damaged.
+     */
+    private static function holdsAFrame(string $bytes): bool
+    {
+        return str_contains($bytes, "\0");
     }
 
     /**

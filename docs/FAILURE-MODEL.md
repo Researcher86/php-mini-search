@@ -45,7 +45,10 @@ completes a reindex. `bin/mini-search check` inspects the log offline.
 A damaged length field in the middle could point past the end of the file
 and pass for a torn tail, which would silently drop every acknowledged record
 after it. A length above the 256 KB maximum is therefore always treated as
-corruption, never as a torn tail.
+corruption, never as a torn tail. So is a smaller length whose claimed bytes
+hold a NUL: a JSON body never has one, and every record header does, so
+those bytes are later records. Only a damaged length in the very last record
+still reads as a torn tail, because nothing after it can tell the two apart.
 
 **Test:** corrupt one byte in the middle, in a body and in a length field;
 startup must report the state and keep the damaged file.
