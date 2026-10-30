@@ -418,7 +418,7 @@ writes 1,134/s.
 
 They were not met at first. The baseline without changes replayed 10,000
 documents in 29.9 s against a 10 s target. Stemming was 96% of analysis, and
-90% of tokens repeat, so a bounded `token → term` cache in `Analyzer` took the
+99.5% of tokens repeat, so a bounded `token → term` cache in `Analyzer` took the
 replay to 5.0 s and a `PUT` from 24 ms to 8 ms, without changing any result
 ([DECISIONS.md](DECISIONS.md#stems-are-cached)).
 

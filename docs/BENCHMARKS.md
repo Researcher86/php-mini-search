@@ -63,7 +63,7 @@ Without the cache the startup target (≤ 10 s) was missed by three times. A
 breakdown of where the time went:
 
 * analysis cost 12 µs per token, and **96% of that was stemming**. NFKC, lowercasing and tokenizing 300 documents took 22 ms together;
-* **90% of tokens repeat**, as words in text do: 5 million tokens in the corpus, 27,379 distinct;
+* **99.5% of tokens repeat**, as words in text do: 5 million tokens in the corpus, 27,379 distinct;
 * fsync cost 0.56 ms, so it was not the bottleneck.
 
 The fix was a bounded `token → term` cache in `Analyzer`, about 15 lines. It

@@ -32,7 +32,7 @@ use PhpMiniSearch\Analysis\Snowball\RussianStemmer;
  * comes out of here.
  *
  * Stems are cached, token → term. Stemming was 96% of the cost of analysis
- * (12 µs a token), while 90% of tokens repeat, as words in text do. With the
+ * (12 µs a token), while 99.5% of tokens repeat, as words in text do. With the
  * cache, analysing 10,000 documents went from about 60 s to 1.5 s
  * (docs/BENCHMARKS.md). The cache is bounded: when it holds
  * CACHE_ENTRIES tokens it is emptied and starts over, which costs a few

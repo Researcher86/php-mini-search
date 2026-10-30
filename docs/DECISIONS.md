@@ -439,7 +439,7 @@ gives the same stem for `levis`.
 
 The first measured baseline missed the startup target three times over: a
 replay of 10,000 documents took 29.9 s against 10 s, and a single `PUT` took
-24 ms. Stemming was 96% of the cost of analysis, at 12 µs a token. Yet 90% of
+24 ms. Stemming was 96% of the cost of analysis, at 12 µs a token. Yet 99.5% of
 the tokens in a corpus repeat: 5 million tokens, 27,379 distinct words.
 
 `Analyzer` keeps a `token → term` cache of up to 200,000 entries and empties

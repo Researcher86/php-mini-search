@@ -136,7 +136,7 @@ scale.
 6. documents and queries go through the same pipeline.
 
 Stems are cached, `token → term`, up to 200,000 entries. Stemming was 96% of
-the cost of analysis, and 90% of tokens repeat. The cache turned a 30-second
+the cost of analysis, and 99.5% of tokens repeat. The cache turned a 30-second
 replay into a 5-second one ([DECISIONS.md](DECISIONS.md#stems-are-cached)).
 
 ---
