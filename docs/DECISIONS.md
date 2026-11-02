@@ -445,8 +445,8 @@ the tokens in a corpus repeat: 5 million tokens, 27,379 distinct words.
 `Analyzer` keeps a `token → term` cache of up to 200,000 entries and empties
 it when it is full. A replay now takes 5.0 s and a `PUT` 8 ms
 ([BENCHMARKS.md](BENCHMARKS.md)). The cache cannot change a result: a token
-always gives the same term, and the Snowball vocabularies and the oracle
-comparison still pass.
+always gives the same term. The Snowball vocabularies and the oracle
+comparison do not go through `Analyzer`, so they do not test the cache.
 
 Two options were rejected:
 

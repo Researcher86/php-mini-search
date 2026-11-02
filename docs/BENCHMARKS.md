@@ -67,13 +67,14 @@ breakdown of where the time went:
 * fsync cost 0.56 ms, so it was not the bottleneck.
 
 The fix was a bounded `token → term` cache in `Analyzer`, about 15 lines. It
-holds up to 200,000 tokens and is emptied when full. It changes no result:
-the 92,434 Snowball reference pairs and the oracle comparison pass
-unchanged. Analysing the whole corpus went from about 60 s to 1.5 s, and the
-cache holds about 4 MB here. The other options were rewriting the stemmers
-for speed, which would gain perhaps 2–3 times and make them no longer a
-line-by-line port of the `.sbl` sources, or raising the startup target. Both
-were rejected (DECISIONS.md, "Stems are cached").
+holds up to 200,000 tokens and is emptied when full. It changes no result,
+because a token always stems to the same term; no test checks that directly,
+since the 92,434 Snowball reference pairs call the stemmers and the oracle
+comparison builds terms itself, both without `Analyzer`. Analysing the whole
+corpus went from about 60 s to 1.5 s, and the cache holds about 4 MB here. The
+other options were rewriting the stemmers for speed, which would gain perhaps
+2–3 times and make them no longer a line-by-line port of the `.sbl` sources, or
+raising the startup target. Both were rejected (DECISIONS.md, "Stems are cached").
 
 Search did not change. Its cost is BM25 over the matches of frequent terms,
 not the analysis of a short query.
